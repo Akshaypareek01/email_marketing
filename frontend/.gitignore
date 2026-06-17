@@ -1,0 +1,16 @@
+# Monorepo rules live in the repo root `.gitignore`.
+# Next.js / Yarn specifics not covered there:
+
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Never commit local environment files (may hold secrets once real keys are added).
+.env
+.env.local
+.env*.local
+node_modules/
+.next/

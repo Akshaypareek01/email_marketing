@@ -1,0 +1,9 @@
+# Monorepo rules live in the repo root `.gitignore`.
+# Keep this file so tooling that expects a backend-local ignore still works.
+logs/
+node_modules/
+# Ignore all real env files; keep the *.example templates committable.
+.env
+.env.*
+!.env.example
+!.env.production.example
