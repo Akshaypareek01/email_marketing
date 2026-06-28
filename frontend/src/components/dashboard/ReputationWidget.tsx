@@ -14,7 +14,7 @@ const COMPLAINT_WARN = 0.05;
 const COMPLAINT_DANGER = 0.1;
 
 /**
- * Per-tenant reputation health gauge vs AWS thresholds (DESIGN.md §9).
+ * Per-tenant reputation health gauge vs deliverability thresholds (DESIGN.md §9).
  */
 export function ReputationWidget({ bounceRate, complaintRate, sent }: ReputationWidgetProps) {
   const bounceTone =
@@ -49,14 +49,14 @@ export function ReputationWidget({ bounceRate, complaintRate, sent }: Reputation
           <Metric
             label="Bounce rate"
             value={`${bounceRate.toFixed(2)}%`}
-            limit="5% AWS limit"
+            limit="5% limit"
             tone={bounceTone}
             pct={(bounceRate / BOUNCE_DANGER) * 100}
           />
           <Metric
             label="Complaint rate"
             value={`${complaintRate.toFixed(3)}%`}
-            limit="0.1% AWS limit"
+            limit="0.1% limit"
             tone={complaintTone}
             pct={(complaintRate / COMPLAINT_DANGER) * 100}
           />

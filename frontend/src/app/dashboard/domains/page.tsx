@@ -9,11 +9,12 @@ import { Button, Card, CardBody, EmptyState, Input } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { useTenantAdmin } from '@/hooks/useTenantAdmin';
-import type { Domain } from '@/lib/types';
+import type { Domain, AccountOverview } from '@/lib/types';
 
 export default function DomainsPage() {
   const admin = useTenantAdmin();
   const [domains, setDomains] = useState<Domain[]>([]);
+  const [overview, setOverview] = useState<AccountOverview | null>(null);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,13 +22,24 @@ export default function DomainsPage() {
   const load = useCallback(async () => {
     const token = getToken();
     if (!token) return;
-    const data = await api.listDomains(token);
-    setDomains(data.domains as Domain[]);
+    const [domainData, overviewData] = await Promise.all([
+      api.listDomains(token),
+      api.accountOverview(token).catch(() => null),
+    ]);
+    setDomains(domainData.domains as Domain[]);
+    if (overviewData) setOverview(overviewData);
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const sub = overview?.subscription;
+  const maxDomains = sub?.maxDomains ?? 0;
+  const usedDomains = domains.length;
+  const trialExpired = Boolean(sub?.trialExpired);
+  const atLimit = maxDomains > 0 && usedDomains >= maxDomains;
+  const canAdd = admin && !trialExpired && !atLimit;
 
   async function onAdd(e: FormEvent) {
     e.preventDefault();
@@ -50,26 +62,72 @@ export default function DomainsPage() {
   return (
     <DashboardShell
       title="Domains"
-      subtitle="Connect and verify sending domains via AWS SES"
+      subtitle="Connect and verify your sending domains"
     >
       {!admin && <ReadOnlyBanner message="View-only — contact an admin to add or verify domains." />}
+
+      {/* Trial / plan status banner */}
+      {admin && sub && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="font-medium">
+              {sub.status === 'trialing'
+                ? trialExpired
+                  ? 'Free trial ended'
+                  : `Free trial · ${sub.trialDaysLeft ?? 0} day${sub.trialDaysLeft === 1 ? '' : 's'} left`
+                : `${sub.planName || 'Current plan'}`}
+            </span>
+            <span className="text-muted-foreground">
+              Domains: {usedDomains} / {maxDomains > 0 ? maxDomains : '∞'}
+            </span>
+          </div>
+          {(trialExpired || atLimit) && (
+            <Link
+              href="/dashboard/billing"
+              className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+            >
+              {trialExpired ? 'Choose a plan' : 'Upgrade plan'}
+            </Link>
+          )}
+        </div>
+      )}
+
       {admin && (
       <Card className="mb-6">
         <CardBody>
-          <form onSubmit={onAdd} className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[240px] flex-1">
-              <Input
-                label="Domain name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="example.com"
-                required
-              />
-            </div>
-            <Button type="submit" loading={loading}>
-              Add domain
-            </Button>
-          </form>
+          {trialExpired ? (
+            <p className="text-sm text-muted-foreground">
+              Your free trial has ended.{' '}
+              <Link href="/dashboard/billing" className="font-semibold text-[var(--primary)] hover:underline">
+                Choose a plan
+              </Link>{' '}
+              to add domains and resume sending.
+            </p>
+          ) : atLimit ? (
+            <p className="text-sm text-muted-foreground">
+              You&apos;ve used all {maxDomains} domain{maxDomains === 1 ? '' : 's'} on your plan.{' '}
+              <Link href="/dashboard/billing" className="font-semibold text-[var(--primary)] hover:underline">
+                Upgrade
+              </Link>{' '}
+              to add more.
+            </p>
+          ) : (
+            <form onSubmit={onAdd} className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[240px] flex-1">
+                <Input
+                  label="Domain name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="example.com"
+                  required
+                  disabled={!canAdd}
+                />
+              </div>
+              <Button type="submit" loading={loading} disabled={!canAdd}>
+                Add domain
+              </Button>
+            </form>
+          )}
           {error && <p className="mt-3 text-sm text-[var(--danger)]">{error}</p>}
         </CardBody>
       </Card>
@@ -78,7 +136,7 @@ export default function DomainsPage() {
       {domains.length === 0 ? (
         <EmptyState
           title="No domains yet"
-          message="Add your first domain to start verifying DNS records for SES."
+          message="Add your first domain to start verifying DNS records for sending."
         />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">

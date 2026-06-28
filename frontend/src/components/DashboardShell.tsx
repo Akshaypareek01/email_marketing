@@ -26,7 +26,7 @@ export function DashboardShell({
   fullBleed = false,
 }: DashboardShellProps) {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen bg-background">
       <Sidebar />
       <main className="flex min-w-0 flex-1 flex-col overflow-auto">
         {!fullBleed && (

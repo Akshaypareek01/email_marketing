@@ -28,7 +28,6 @@ const NAV_GROUPS: { title: string; links: NavLink[] }[] = [
     links: [
       { href: '/dashboard/domains', label: 'Domains' },
       { href: '/dashboard/mailboxes', label: 'Mailboxes' },
-      { href: '/dashboard/inbox', label: 'Mail' },
       { href: '/dashboard/compose', label: 'Send email' },
       { href: '/dashboard/events', label: 'Events', adminOnly: true },
     ],
@@ -89,9 +88,8 @@ export function Sidebar() {
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-card">
       <div className="flex items-center gap-2 border-b border-border px-6 py-5">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--primary)] text-white">
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Mail Box" className="h-8 w-8 rounded-[20px] object-cover" />
         <div>
           <p className="text-sm font-bold tracking-tight">Mail Box</p>
           <p className="text-[11px] text-muted-foreground">Email platform</p>

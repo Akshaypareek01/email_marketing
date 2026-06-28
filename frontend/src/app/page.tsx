@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
+import type { Plan } from '@/lib/types';
 
 /* ------------------------------------------------------------------ */
 /*  Scroll-reveal: adds `.in-view` to every `.reveal` when it enters    */
@@ -75,9 +77,8 @@ function Header() {
     >
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--primary)] text-white shadow-sm">
-            <I.send className="h-4 w-4" />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Mail Box" className="h-8 w-8 rounded-[20px] object-cover shadow-sm" />
           <span className="text-lg font-bold tracking-tight">Mail Box</span>
         </Link>
         <div className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
@@ -117,7 +118,7 @@ function Hero() {
       <div className="mx-auto max-w-4xl text-center">
         <div className="animate-fade-in mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur">
           <span className="inline-block h-2 w-2 rounded-full bg-[var(--accent)]" />
-          Built on AWS SES · Reputation-safe by design
+          Reputation-safe by design
         </div>
 
         <h1 className="animate-fade-up text-4xl font-bold leading-[1.08] tracking-tight sm:text-6xl">
@@ -241,8 +242,6 @@ function TrustStrip() {
           <span>99.2% inbox placement</span>
           <span className="hidden sm:inline">·</span>
           <span>SPF · DKIM · DMARC</span>
-          <span className="hidden sm:inline">·</span>
-          <span>AWS SES powered</span>
         </div>
       </div>
     </section>
@@ -346,7 +345,7 @@ function Deliverability() {
               </div>
             </div>
           ))}
-          <p className="mt-2 text-xs text-slate-400">Thresholds enforced below AWS limits (5% bounce · 0.1% complaint).</p>
+          <p className="mt-2 text-xs text-slate-400">Thresholds enforced below industry limits (5% bounce · 0.1% complaint).</p>
         </div>
       </div>
     </section>
@@ -356,13 +355,84 @@ function Deliverability() {
 /* ------------------------------------------------------------------ */
 /*  Pricing                                                             */
 /* ------------------------------------------------------------------ */
-const PLANS = [
-  { name: 'Starter', price: '₹999', period: '/mo', quota: '10,000 emails / month', features: ['1 sending domain', '5,000 contacts', 'HTML & block templates', 'Basic analytics', 'Email support'], cta: 'Start free', highlight: false },
-  { name: 'Growth', price: '₹2,999', period: '/mo', quota: '50,000 emails / month', features: ['3 sending domains', '50,000 contacts', 'Scheduled campaigns', 'Advanced analytics', 'Reputation dashboard', 'Priority support'], cta: 'Start free', highlight: true },
-  { name: 'Scale', price: '₹7,999', period: '/mo', quota: '200,000 emails / month', features: ['Unlimited domains', 'Unlimited contacts', 'Dedicated send pool', 'Team roles & RBAC', 'Custom DMARC support', 'Dedicated manager'], cta: 'Contact sales', highlight: false },
+/** Plan card view-model used by the pricing grid. */
+type PlanCard = {
+  key: string;
+  name: string;
+  price: string;
+  period: string;
+  quota: string;
+  features: string[];
+  cta: string;
+  highlight: boolean;
+};
+
+/** Fallback shown while plans load or if the API is unreachable. */
+const STATIC_PLANS: PlanCard[] = [
+  { key: 'Starter', name: 'Starter', price: '₹999', period: '/mo', quota: '8,000 emails / month', features: ['1 sending domain', '5,000 contacts', 'HTML & block templates', 'Basic analytics', 'Email support'], cta: 'Get started', highlight: false },
+  { key: 'Growth', name: 'Growth', price: '₹2,999', period: '/mo', quota: '35,000 emails / month', features: ['3 sending domains', '25,000 contacts', 'Scheduled campaigns', 'Advanced analytics', 'Reputation dashboard', 'Priority support'], cta: 'Get started', highlight: true },
+  { key: 'Pro', name: 'Pro', price: '₹7,999', period: '/mo', quota: '120,000 emails / month', features: ['10 sending domains', '100,000 contacts', 'Dedicated send pool', 'Team roles & RBAC', 'Custom DMARC support', 'Dedicated manager'], cta: 'Get started', highlight: false },
 ];
 
+/** Format minor currency units as a clean, whole-number price (no decimals). */
+function formatPlanPrice(minor: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+      maximumFractionDigits: 0,
+    }).format(minor / 100);
+  } catch {
+    return `${Math.round(minor / 100)} ${currency.toUpperCase()}`;
+  }
+}
+
+/** Derive human-readable feature bullets from a plan's limits + its feature list. */
+function planFeatures(p: Plan): string[] {
+  const limits = [
+    p.maxDomains === 0 ? 'Unlimited sending domains' : `${p.maxDomains} sending domain${p.maxDomains > 1 ? 's' : ''}`,
+    p.maxContacts === 0 ? 'Unlimited contacts' : `${p.maxContacts.toLocaleString('en-IN')} contacts`,
+    p.maxTeamUsers === 0 ? 'Unlimited team members' : `${p.maxTeamUsers} team member${p.maxTeamUsers > 1 ? 's' : ''}`,
+  ];
+  if (p.attachmentMb) limits.push(`${p.attachmentMb} MB attachments`);
+  return [...limits, ...(p.features ?? [])];
+}
+
+/** Map a DB plan to the pricing-card view-model. */
+function toCard(p: Plan, index: number, total: number): PlanCard {
+  return {
+    key: p._id,
+    name: p.name,
+    price: formatPlanPrice(p.priceMinor, p.currency),
+    period: p.interval === 'year' ? '/yr' : '/mo',
+    quota: `${p.monthlyEmailQuota.toLocaleString('en-IN')} emails / month`,
+    features: planFeatures(p),
+    cta: 'Get started',
+    // Spotlight the middle tier (e.g. Growth in a 3-plan lineup).
+    highlight: total >= 3 && index === Math.floor(total / 2),
+  };
+}
+
 function Pricing() {
+  const [cards, setCards] = useState<PlanCard[]>(STATIC_PLANS);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .listPublicPlans()
+      .then((res) => {
+        if (active && res.plans?.length) {
+          setCards(res.plans.map((p, i) => toCard(p, i, res.plans.length)));
+        }
+      })
+      .catch(() => {
+        /* keep static fallback if the API is unreachable */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <section id="pricing" className="px-6 py-24">
       <div className="mx-auto max-w-7xl">
@@ -371,10 +441,10 @@ function Pricing() {
           <p className="mt-4 text-lg text-muted-foreground">Pick a monthly plan with the email quota you need. Upgrade any time.</p>
         </div>
         <div className="mt-14 grid gap-6 lg:grid-cols-3">
-          {PLANS.map((p) => (
+          {cards.map((p) => (
             <div
-              key={p.name}
-              className={`reveal relative flex flex-col rounded-2xl border p-7 transition hover:-translate-y-1 ${
+              key={p.key}
+              className={`relative flex flex-col rounded-2xl border p-7 transition hover:-translate-y-1 ${
                 p.highlight
                   ? 'border-[var(--primary)] bg-white shadow-xl shadow-indigo-500/10 ring-1 ring-[var(--primary)]'
                   : 'border-border bg-white shadow-sm hover:shadow-lg'
@@ -522,9 +592,8 @@ function Footer() {
     <footer className="border-t border-border bg-white px-6 py-12">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 sm:flex-row">
         <div className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--primary)] text-white">
-            <I.send className="h-3.5 w-3.5" />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Mail Box" className="h-7 w-7 rounded-[20px] object-cover" />
           <span className="font-bold">Mail Box</span>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">

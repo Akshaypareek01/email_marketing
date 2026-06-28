@@ -50,6 +50,35 @@ function splitCsvLine(line: string): string[] {
   return out;
 }
 
+/** Columns the importer understands — used for the downloadable sample template. */
+export const CONTACTS_TEMPLATE_HEADERS = ['email', 'firstName', 'lastName', 'company'] as const;
+
+/** Escape a single CSV cell if it contains a comma, quote, or newline. */
+function csvCell(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+/** Build a sample contacts CSV (header row + two example rows). */
+export function buildContactsTemplateCsv(): string {
+  const rows = [
+    CONTACTS_TEMPLATE_HEADERS as readonly string[],
+    ['jane@example.com', 'Jane', 'Doe', 'Acme Inc'],
+    ['john@example.com', 'John', 'Smith', 'Globex'],
+  ];
+  return rows.map((r) => r.map(csvCell).join(',')).join('\n');
+}
+
+/** Trigger a browser download of the contacts import template. */
+export function downloadContactsTemplate(): void {
+  const blob = new Blob([buildContactsTemplateCsv()], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'contacts-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /**
  * Guess column mapping from CSV headers.
  * @param headers

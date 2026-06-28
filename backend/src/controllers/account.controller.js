@@ -6,6 +6,7 @@ import { Contact } from '../models/Contact.js';
 import { Campaign } from '../models/Campaign.js';
 import { loadTenantForSend, reputationRates } from '../services/sendingGuard.service.js';
 import { getEffectiveQuota } from '../services/subscription.service.js';
+import { getTrialEndsAt, isTrialExpired, trialDaysLeft } from '../services/planLimits.service.js';
 import { syncDerivedNotices } from '../services/systemNotice.service.js';
 import { env } from '../config/env.js';
 
@@ -49,6 +50,10 @@ export async function getAccountOverview(req, res, next) {
         periodStart: sub.periodStart,
         maxDomains: sub.maxDomains ?? 0,
         maxContacts: sub.maxContacts ?? 0,
+        maxTeamUsers: sub.maxTeamUsers ?? 0,
+        trialEndsAt: sub.status === 'trialing' ? getTrialEndsAt(tenant) : null,
+        trialExpired: isTrialExpired(tenant),
+        trialDaysLeft: trialDaysLeft(tenant),
         periodResetAt: (() => {
           const d = new Date(sub.periodStart || Date.now());
           d.setMonth(d.getMonth() + 1);

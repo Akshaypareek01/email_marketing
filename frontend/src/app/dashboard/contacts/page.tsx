@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { DashboardShell } from '@/components/DashboardShell';
 import { ImportCsvModal } from '@/components/contacts/ImportCsvModal';
 import { ContactEditModal } from '@/components/contacts/ContactEditModal';
+import { ContactCreateModal } from '@/components/contacts/ContactCreateModal';
 import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 import { StatCard } from '@/components/dashboard/StatCard';
 import {
@@ -19,6 +20,7 @@ import {
 } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { downloadContactsTemplate } from '@/lib/csv';
 import { useTenantAdmin } from '@/hooks/useTenantAdmin';
 import type { Contact, ContactList, ContactStats } from '@/lib/types';
 
@@ -30,6 +32,7 @@ export default function ContactsPage() {
   const [activeListId, setActiveListId] = useState('');
   const [search, setSearch] = useState('');
   const [showImport, setShowImport] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [showNewList, setShowNewList] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -100,8 +103,10 @@ export default function ContactsPage() {
       action={
         admin ? (
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={downloadContactsTemplate}>Download template</Button>
             <Button variant="outline" size="sm" onClick={onExport}>Export CSV</Button>
-            <Button size="sm" onClick={() => setShowImport(true)}>Import CSV</Button>
+            <Button variant="outline" size="sm" onClick={() => setShowImport(true)}>Import CSV</Button>
+            <Button size="sm" onClick={() => setShowCreate(true)}>Add contact</Button>
           </div>
         ) : undefined
       }
@@ -148,15 +153,33 @@ export default function ContactsPage() {
               All contacts
             </button>
             {lists.map((l) => (
-              <button
+              <div
                 key={l._id}
-                type="button"
-                onClick={() => setActiveListId(l._id)}
-                className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm ${activeListId === l._id ? 'bg-[var(--primary)]/10 font-medium text-[var(--primary)]' : 'hover:bg-muted'}`}
+                className={`group flex items-center rounded-lg ${activeListId === l._id ? 'bg-[var(--primary)]/10' : 'hover:bg-muted'}`}
               >
-                <span>{l.name}</span>
-                <span className="text-xs text-muted-foreground">{l.contactCount ?? 0}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveListId(l._id)}
+                  className={`flex min-w-0 flex-1 items-center justify-between px-3 py-2 text-left text-sm ${activeListId === l._id ? 'font-medium text-[var(--primary)]' : ''}`}
+                >
+                  <span className="truncate">{l.name}</span>
+                  <span className="ml-2 shrink-0 text-xs text-muted-foreground">{l.contactCount ?? 0}</span>
+                </button>
+                {admin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveListId(l._id);
+                      setShowCreate(true);
+                    }}
+                    aria-label={`Add contact to ${l.name}`}
+                    title={`Add contact to ${l.name}`}
+                    className="mr-1.5 grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition hover:bg-white hover:text-[var(--primary)] focus:opacity-100 group-hover:opacity-100"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
             ))}
           </CardBody>
         </Card>
@@ -180,9 +203,14 @@ export default function ContactsPage() {
             ) : contacts.length === 0 ? (
               <EmptyState
                 title="No contacts yet"
-                message="Import a CSV or add contacts manually."
+                message="Add a contact manually, or import a CSV."
                 action={
-                  admin ? <Button onClick={() => setShowImport(true)}>Import CSV</Button> : undefined
+                  admin ? (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button onClick={() => setShowCreate(true)}>Add contact</Button>
+                      <Button variant="outline" onClick={() => setShowImport(true)}>Import CSV</Button>
+                    </div>
+                  ) : undefined
                 }
               />
             ) : (
@@ -230,6 +258,14 @@ export default function ContactsPage() {
         </Card>
       </div>
 
+      {showCreate && admin && (
+        <ContactCreateModal
+          lists={lists}
+          defaultListId={activeListId}
+          onClose={() => setShowCreate(false)}
+          onSaved={load}
+        />
+      )}
       {showImport && admin && (
         <ImportCsvModal lists={lists} onClose={() => setShowImport(false)} onDone={load} />
       )}

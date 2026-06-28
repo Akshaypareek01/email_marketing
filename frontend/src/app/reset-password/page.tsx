@@ -7,9 +7,14 @@ import { api, ApiError } from '@/lib/api';
 import { AuthShell } from '@/components/AuthShell';
 import { Button, Input, Skeleton } from '@/components/ui';
 
+/**
+ * Standalone password reset using an emailed OTP code (email + code + new password).
+ * Request a code from the "Forgot password" page first.
+ */
 function ResetPasswordForm() {
   const params = useSearchParams();
-  const token = params.get('token') || '';
+  const [email, setEmail] = useState(params.get('email') || '');
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [message, setMessage] = useState('');
@@ -21,16 +26,12 @@ function ResetPasswordForm() {
     setError('');
     setMessage('');
     if (password !== confirm) {
-      setError('Passwords do not match');
-      return;
-    }
-    if (!token) {
-      setError('Invalid reset link');
+      setError('Passwords do not match.');
       return;
     }
     setLoading(true);
     try {
-      const res = await api.resetPassword(token, password);
+      const res = await api.resetPassword(email, code.trim(), password);
       setMessage(res.message);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Reset failed');
@@ -39,14 +40,27 @@ function ResetPasswordForm() {
     }
   }
 
-  if (!token) {
-    return (
-      <p className="text-sm text-[var(--danger)]">This reset link is invalid or missing a token.</p>
-    );
-  }
-
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      <Input
+        type="email"
+        label="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="you@example.com"
+        required
+        autoComplete="email"
+      />
+      <Input
+        label="Reset code"
+        value={code}
+        onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, '').slice(0, 6))}
+        placeholder="123456"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        className="tracking-[0.5em] text-center text-lg"
+        required
+      />
       <Input
         type="password"
         label="New password"
@@ -73,13 +87,20 @@ function ResetPasswordForm() {
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       )}
 
-      <Button type="submit" size="lg" loading={loading} className="w-full" disabled={!!message}>
+      <Button type="submit" size="lg" loading={loading} className="w-full" disabled={!!message || code.length !== 6}>
         Update password
       </Button>
 
-      {message && (
+      {message ? (
         <p className="text-center text-sm">
           <Link href="/login" className="font-semibold text-[var(--primary)] hover:underline">Sign in</Link>
+        </p>
+      ) : (
+        <p className="text-center text-sm text-muted-foreground">
+          Need a code?{' '}
+          <Link href="/forgot-password" className="font-semibold text-[var(--primary)] hover:underline">
+            Request one
+          </Link>
         </p>
       )}
     </form>
@@ -88,7 +109,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <AuthShell eyebrow="Account recovery" heading="Choose a new password" sub="Must be at least 8 characters.">
+    <AuthShell eyebrow="Account recovery" heading="Choose a new password" sub="Enter the code we emailed and a new password.">
       <Suspense fallback={<Skeleton className="h-40" />}>
         <ResetPasswordForm />
       </Suspense>

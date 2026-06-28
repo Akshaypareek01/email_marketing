@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardShell } from '@/components/DashboardShell';
 import { PendingAttachmentList } from '@/components/inbox/PendingAttachmentList';
+import { ListPickerDrawer } from '@/components/campaigns/ListPickerDrawer';
 import { Button, Card, CardBody, CardHeader, Input, Select } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { getToken } from '@/lib/auth';
@@ -25,8 +26,11 @@ export default function NewCampaignPage() {
   const [listId, setListId] = useState('');
   const [preflight, setPreflight] = useState<CampaignPreflight | null>(null);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [listDrawerOpen, setListDrawerOpen] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const selectedList = lists.find((l) => l._id === listId) || null;
 
   useEffect(() => {
     const token = getToken();
@@ -86,12 +90,29 @@ export default function NewCampaignPage() {
                   <option key={t._id} value={t._id}>{t.name}</option>
                 ))}
               </Select>
-              <Select label="Contact list" value={listId} onChange={(e) => setListId(e.target.value)} required>
-                <option value="">Select list</option>
-                {lists.map((l) => (
-                  <option key={l._id} value={l._id}>{l.name} ({l.contactCount ?? 0})</option>
-                ))}
-              </Select>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-foreground">Contact list</label>
+                <button
+                  type="button"
+                  onClick={() => setListDrawerOpen(true)}
+                  className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-white px-3 py-2.5 text-left text-sm transition hover:border-[var(--primary)]/50 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30"
+                >
+                  {selectedList ? (
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{selectedList.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {(selectedList.contactCount ?? 0).toLocaleString()} contacts
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">{lists.length ? 'Choose a list…' : 'No lists yet'}</span>
+                  )}
+                  <span className="shrink-0 text-xs font-medium text-[var(--primary)]">
+                    {selectedList ? 'Change' : 'Browse'}
+                  </span>
+                </button>
+                <p className="text-xs text-muted-foreground">Pick from a searchable panel — handy when you have lots of lists.</p>
+              </div>
               <div className="rounded-lg border border-border">
                 <div className="flex items-center justify-between px-4 py-3">
                   <p className="text-sm text-muted-foreground">Optional attachments (max 5)</p>
@@ -159,6 +180,14 @@ export default function NewCampaignPage() {
           </CardBody>
         </Card>
       </div>
+
+      <ListPickerDrawer
+        open={listDrawerOpen}
+        lists={lists}
+        selectedId={listId}
+        onSelect={setListId}
+        onClose={() => setListDrawerOpen(false)}
+      />
     </DashboardShell>
   );
 }

@@ -32,7 +32,7 @@ export default function EventsPage() {
   return (
     <DashboardShell
       title="Email events"
-      subtitle="Delivery, bounce, and complaint events from AWS SES"
+      subtitle="Delivery, bounce, and complaint events"
     >
       <div className="mb-4 flex flex-wrap gap-2">
         {types.map((t) => (
@@ -56,7 +56,7 @@ export default function EventsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           title="No events yet"
-          message="Send an email or connect the SES webhook to see delivery events here."
+          message="Send an email to see delivery events here."
         />
       ) : (
         <Card>

@@ -4,7 +4,7 @@ import { FormEvent, useRef, useState } from 'react';
 import { Button, Select } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-import { guessColumnMapping, parseCsv } from '@/lib/csv';
+import { downloadContactsTemplate, guessColumnMapping, parseCsv } from '@/lib/csv';
 import type { ContactList, ImportResult } from '@/lib/types';
 
 interface ImportCsvModalProps {
@@ -83,7 +83,17 @@ export function ImportCsvModal({ lists, onClose, onDone }: ImportCsvModalProps) 
         </p>
 
         {!rows.length ? (
-          <div className="mt-4">
+          <div className="mt-4 space-y-3">
+            <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              New to this? Download our sample file, fill in your contacts, then upload it.{' '}
+              <button
+                type="button"
+                onClick={downloadContactsTemplate}
+                className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+              >
+                Download template
+              </button>
+            </div>
             <input
               ref={fileRef}
               type="file"

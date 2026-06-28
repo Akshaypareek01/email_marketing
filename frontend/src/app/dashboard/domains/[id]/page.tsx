@@ -81,7 +81,7 @@ export default function DomainDetailPage() {
   return (
     <DashboardShell
       title={domain.name}
-      subtitle="DNS records for SES identity verification"
+      subtitle="DNS records for domain identity verification"
       action={
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => downloadDnsRecords(domain.name, domain.dnsRecords || [])} disabled={!domain.dnsRecords?.length}>

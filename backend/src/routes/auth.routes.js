@@ -25,6 +25,14 @@ router.post(
     body('email').isEmail().normalizeEmail(),
     body('password').isLength({ min: 8 }),
     body('tenantName').trim().notEmpty(),
+    body('phoneCountryCode')
+      .trim()
+      .matches(/^\+\d{1,4}$/)
+      .withMessage('Country code must look like +91'),
+    body('phone')
+      .trim()
+      .matches(/^\d{6,15}$/)
+      .withMessage('Enter a valid mobile number'),
   ],
   validate,
   register
@@ -61,12 +69,23 @@ router.post(
 router.post(
   '/reset-password',
   authRateLimit,
-  [body('token').notEmpty(), body('password').isLength({ min: 8 })],
+  [
+    body('email').isEmail().normalizeEmail(),
+    body('code').trim().isLength({ min: 6, max: 6 }),
+    body('password').isLength({ min: 8 }),
+  ],
   validate,
   resetPasswordHandler
 );
 
-router.post('/verify-email', authRateLimit, [body('token').notEmpty()], validate, verifyEmail);
+router.post(
+  '/verify-email',
+  authRateLimit,
+  authenticate,
+  [body('code').trim().isLength({ min: 6, max: 6 })],
+  validate,
+  verifyEmail
+);
 
 router.post('/resend-verification', authenticate, resendVerification);
 

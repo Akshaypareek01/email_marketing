@@ -65,6 +65,10 @@ export const env = {
     emailVerificationExpiresMs: parseDurationMs(firstEnvValue('EMAIL_VERIFICATION_EXPIRES_IN') || '24h'),
     requireEmailVerification: envFlag('REQUIRE_EMAIL_VERIFICATION'),
   },
+  /** Free-trial policy: new tenants get full access for this many days, then must buy a plan. */
+  trial: {
+    days: Number(process.env.TRIAL_DAYS) || 7,
+  },
   /** Encrypts per-mailbox IMAP passwords at rest (defaults to JWT_SECRET). */
   credentialsEncryptionKey: firstEnvValue('CREDENTIALS_ENCRYPTION_KEY', 'JWT_SECRET'),
   corsOrigin: firstEnvValue('CORS_ORIGIN') || 'http://localhost:3000',

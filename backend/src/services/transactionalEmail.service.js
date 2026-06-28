@@ -34,40 +34,44 @@ export async function sendTransactionalEmail({ to, subject, html, text }) {
   }
 }
 
+/** Inline style for the large OTP code block shown in transactional emails. */
+const OTP_STYLE =
+  'font-size:30px;font-weight:700;letter-spacing:8px;font-family:monospace;margin:16px 0';
+
 /**
- * Send email verification link.
- * @param {{ email: string, name?: string, verifyUrl: string }} params
+ * Send an email-verification OTP code.
+ * @param {{ email: string, name?: string, code: string }} params
  */
-export async function sendVerificationEmail({ email, name, verifyUrl }) {
+export async function sendVerificationEmail({ email, name, code }) {
   const greeting = name?.trim() ? `Hi ${name.trim()},` : 'Hi,';
   return sendTransactionalEmail({
     to: email,
-    subject: 'Verify your Mail Box email',
+    subject: 'Your Mail Box verification code',
     html: `
       <p>${greeting}</p>
-      <p>Confirm your email address to unlock sending and campaigns.</p>
-      <p><a href="${verifyUrl}">Verify email</a></p>
-      <p style="color:#666;font-size:12px">If you did not create an account, ignore this message.</p>
+      <p>Enter this code to confirm your email address and unlock sending and campaigns:</p>
+      <p style="${OTP_STYLE}">${code}</p>
+      <p style="color:#666;font-size:12px">This code expires in 10 minutes. If you did not create an account, ignore this message.</p>
     `,
-    text: `${greeting}\n\nVerify your email: ${verifyUrl}`,
+    text: `${greeting}\n\nYour verification code is ${code}. It expires in 10 minutes.`,
   });
 }
 
 /**
- * Send password reset link.
- * @param {{ email: string, name?: string, resetUrl: string }} params
+ * Send a password-reset OTP code.
+ * @param {{ email: string, name?: string, code: string }} params
  */
-export async function sendPasswordResetEmail({ email, name, resetUrl }) {
+export async function sendPasswordResetEmail({ email, name, code }) {
   const greeting = name?.trim() ? `Hi ${name.trim()},` : 'Hi,';
   return sendTransactionalEmail({
     to: email,
-    subject: 'Reset your Mail Box password',
+    subject: 'Your Mail Box password reset code',
     html: `
       <p>${greeting}</p>
-      <p>We received a request to reset your password.</p>
-      <p><a href="${resetUrl}">Reset password</a></p>
-      <p style="color:#666;font-size:12px">This link expires in 1 hour. If you did not request this, ignore this email.</p>
+      <p>We received a request to reset your password. Enter this code to continue:</p>
+      <p style="${OTP_STYLE}">${code}</p>
+      <p style="color:#666;font-size:12px">This code expires in 10 minutes. If you did not request this, ignore this email.</p>
     `,
-    text: `${greeting}\n\nReset your password: ${resetUrl}`,
+    text: `${greeting}\n\nYour password reset code is ${code}. It expires in 10 minutes.`,
   });
 }

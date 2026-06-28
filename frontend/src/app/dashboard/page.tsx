@@ -101,7 +101,7 @@ export default function DashboardPage() {
                       { href: '/dashboard/domains', label: 'Add domain', desc: 'Connect & verify DNS' },
                       { href: '/dashboard/contacts', label: 'Import contacts', desc: 'CSV upload & lists' },
                       { href: '/dashboard/templates', label: 'Create template', desc: 'HTML + merge tags' },
-                      { href: '/dashboard/compose', label: 'Send one-off', desc: 'Single email via SES' },
+                      { href: '/dashboard/compose', label: 'Send one-off', desc: 'Single email' },
                     ].map((item) => (
                       <Link
                         key={item.href}

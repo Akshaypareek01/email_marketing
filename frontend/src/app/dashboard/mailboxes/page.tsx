@@ -83,7 +83,7 @@ export default function MailboxesPage() {
       setPassword('');
       setSuccess(
         inboundEnabled
-          ? 'Mailbox created and linked to Stalwart.'
+          ? 'Mailbox created and inbox provisioned.'
           : `Sender address ${createdAddress || 'created'}. Open Compose to send email.`
       );
       await load();
@@ -105,7 +105,7 @@ export default function MailboxesPage() {
       await api.linkMailboxCredentials(token, mailboxId, linkPassword.trim());
       setLinkId(null);
       setLinkPassword('');
-      setSuccess('Stalwart credentials linked — open Mail and sync inbox.');
+      setSuccess('Mailbox credentials linked — open Mail and sync inbox.');
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to link credentials');
@@ -119,8 +119,8 @@ export default function MailboxesPage() {
       title="Sender addresses"
       subtitle={
         inboundEnabled
-          ? 'Provision addresses on verified domains via Stalwart'
-          : 'Create From addresses on verified domains — outbound SES sending only'
+          ? 'Provision addresses on verified domains'
+          : 'Create From addresses on verified domains — outbound sending only'
       }
     >
       {!admin && (
@@ -132,7 +132,7 @@ export default function MailboxesPage() {
             title="Create sender address"
             subtitle={
               inboundEnabled
-                ? 'Auto-provisions Stalwart JMAP account + IMAP credentials'
+                ? 'Auto-provisions an inbox with IMAP credentials'
                 : 'Registers a From address for campaigns and compose (no inbox setup)'
             }
           />
@@ -166,7 +166,7 @@ export default function MailboxesPage() {
               />
               {inboundEnabled && (
                 <Input
-                  label="Stalwart password"
+                  label="Mailbox password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -197,8 +197,8 @@ export default function MailboxesPage() {
             <p className="font-medium text-emerald-900">Save these credentials:</p>
             <p className="mt-2 font-mono text-sm">{credentials.address}</p>
             <p className="font-mono text-sm">{credentials.password}</p>
-            <ButtonLink href="/dashboard/inbox" variant="link" className="mt-3">
-              Open Mail →
+            <ButtonLink href="/dashboard/compose" variant="link" className="mt-3">
+              Go to Send email →
             </ButtonLink>
           </CardBody>
         </Card>
@@ -221,7 +221,7 @@ export default function MailboxesPage() {
                       {m.displayName && <p className="text-sm text-muted-foreground">{m.displayName}</p>}
                       {inboundEnabled ? (
                         <Badge tone={m.stalwartLinked ? 'success' : 'warning'} className="mt-2">
-                          Stalwart {m.stalwartLinked ? 'linked' : 'not linked'}
+                          Inbox {m.stalwartLinked ? 'linked' : 'not linked'}
                         </Badge>
                       ) : (
                         <Badge tone="success" className="mt-2">
@@ -244,7 +244,7 @@ export default function MailboxesPage() {
                           size="sm"
                           onClick={() => setLinkId(linkId === m._id ? null : m._id)}
                         >
-                          Link Stalwart
+                          Link inbox
                         </Button>
                       )}
                     </div>
@@ -255,9 +255,9 @@ export default function MailboxesPage() {
                         type="password"
                         value={linkPassword}
                         onChange={(e) => setLinkPassword(e.target.value)}
-                        placeholder="Stalwart password"
+                        placeholder="Mailbox password"
                         className="min-w-[200px] flex-1"
-                        aria-label="Stalwart password"
+                        aria-label="Mailbox password"
                       />
                       <Button size="sm" loading={loading} onClick={() => onLinkStalwart(m._id)}>
                         Save

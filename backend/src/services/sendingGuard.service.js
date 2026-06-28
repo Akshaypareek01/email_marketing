@@ -1,6 +1,7 @@
 import { env } from '../config/env.js';
 import { Tenant } from '../models/Tenant.js';
 import { getEffectiveQuota } from './subscription.service.js';
+import { isTrialExpired } from './planLimits.service.js';
 import { notifySendingAutoPaused, upsertSystemNotice, deactivateSystemNotice } from './systemNotice.service.js';
 import { isPlatformSendingHalted, getPlatformDailyUsage, recordPlatformSend } from './platformSettings.service.js';
 
@@ -139,6 +140,15 @@ export function assertCanSend(tenant, count = 1) {
   }
   if (sub.status === 'canceled') {
     throw new SendBlockedError('Your subscription is canceled.', 'subscription_canceled');
+  }
+
+  // Free trial is time-boxed: once it lapses, sending stops until a plan is purchased.
+  if (isTrialExpired(tenant)) {
+    throw new SendBlockedError(
+      'Your free trial has ended. Choose a plan to resume sending.',
+      'trial_expired',
+      402
+    );
   }
 
   // KYC gate — allow a small free allowance, then require approved business verification.

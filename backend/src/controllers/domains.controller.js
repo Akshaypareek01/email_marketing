@@ -1,4 +1,6 @@
 import { Domain } from '../models/Domain.js';
+import { Tenant } from '../models/Tenant.js';
+import { assertCanAddDomain } from '../services/planLimits.service.js';
 import { resolveSesIdentity, getSesIdentityStatus, configureSesMailFrom } from '../services/ses.service.js';
 import {
   generateDnsRecords,
@@ -30,6 +32,12 @@ export async function getDomain(req, res, next) {
 export async function createDomain(req, res, next) {
   try {
     const name = req.body.name.toLowerCase().trim();
+
+    // Enforce trial window + plan domain allowance before doing any SES work.
+    const tenant = await Tenant.findById(req.user.tenantId);
+    if (!tenant) return res.status(404).json({ message: 'Account not found' });
+    const domainCount = await Domain.countDocuments({ tenantId: req.user.tenantId });
+    assertCanAddDomain(tenant, domainCount);
 
     const existing = await Domain.findOne({ name });
     if (existing) {

@@ -47,7 +47,7 @@ export function AuthShell({
           </h2>
           <p className={`mt-4 max-w-sm ${isAdmin ? 'text-slate-300' : 'text-indigo-100'}`}>
             {isAdmin
-              ? 'Monitor SES health, manage tenants, plans and billing — all in one control center.'
+              ? 'Monitor deliverability health, manage tenants, plans and billing — all in one control center.'
               : 'Connect your domain, run campaigns and protect your sender reputation automatically.'}
           </p>
         </div>

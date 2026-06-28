@@ -1,5 +1,6 @@
 import { Tenant } from '../models/Tenant.js';
 import { User } from '../models/User.js';
+import { env } from '../config/env.js';
 import { ensureTenantConfigSet } from '../services/sesConfigSet.service.js';
 import {
   signAccessToken,
@@ -7,8 +8,8 @@ import {
   rotateRefreshToken,
   revokeRefreshToken,
 } from '../services/authToken.service.js';
-import { requestPasswordReset, resetPassword } from '../services/passwordReset.service.js';
-import { issueEmailVerification, verifyEmailWithToken } from '../services/emailVerification.service.js';
+import { requestPasswordReset, resetPasswordWithCode } from '../services/passwordReset.service.js';
+import { issueEmailVerification, verifyEmailWithCode } from '../services/emailVerification.service.js';
 import { writeAuditLog, auditContext } from '../services/audit.service.js';
 import logger from '../middleware/logsCreate.js';
 
@@ -48,7 +49,7 @@ async function authPayload(user, req, tenant) {
 
 export async function register(req, res, next) {
   try {
-    const { name, email, password, tenantName } = req.body;
+    const { name, email, password, tenantName, phoneCountryCode, phone } = req.body;
 
     const slug = tenantName
       .toLowerCase()
@@ -60,11 +61,18 @@ export async function register(req, res, next) {
       return res.status(409).json({ message: 'Email already registered' });
     }
 
-    const tenant = await Tenant.create({ name: tenantName, slug });
+    const trialEndsAt = new Date(Date.now() + env.trial.days * 24 * 60 * 60 * 1000);
+    const tenant = await Tenant.create({
+      name: tenantName,
+      slug,
+      subscription: { trialEndsAt },
+    });
     const user = await User.create({
       name,
       email,
       password,
+      phoneCountryCode,
+      phone,
       tenantId: tenant._id,
       role: 'admin',
     });
@@ -84,7 +92,7 @@ export async function register(req, res, next) {
     });
 
     const payload = await authPayload(user, req, tenant);
-    res.status(201).json({ ...payload, devVerifyUrl: verification.devVerifyUrl });
+    res.status(201).json({ ...payload, devVerifyCode: verification.devCode });
   } catch (err) {
     next(err);
   }
@@ -150,8 +158,8 @@ export async function resendVerification(req, res, next) {
     }
     const verification = await issueEmailVerification(req.user);
     res.json({
-      message: 'Verification link sent.',
-      devVerifyUrl: verification.devVerifyUrl,
+      message: 'Verification code sent.',
+      devVerifyCode: verification.devCode,
     });
   } catch (err) {
     next(err);
@@ -160,9 +168,9 @@ export async function resendVerification(req, res, next) {
 
 export async function verifyEmail(req, res, next) {
   try {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ message: 'token is required' });
-    const user = await verifyEmailWithToken(token);
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ message: 'code is required' });
+    const user = await verifyEmailWithCode(req.user, code);
     await writeAuditLog({
       ...auditContext(req, user),
       action: 'auth.email_verified',
@@ -197,8 +205,8 @@ export async function forgotPassword(req, res, next) {
     });
 
     res.json({
-      message: 'If an account exists for that email, a reset link has been sent.',
-      devResetUrl: result.devResetUrl,
+      message: 'If an account exists for that email, a reset code has been sent.',
+      devResetCode: result.devCode,
     });
   } catch (err) {
     next(err);
@@ -207,8 +215,8 @@ export async function forgotPassword(req, res, next) {
 
 export async function resetPasswordHandler(req, res, next) {
   try {
-    const { token, password } = req.body;
-    const user = await resetPassword(token, password);
+    const { email, code, password } = req.body;
+    const user = await resetPasswordWithCode(email, code, password);
 
     await writeAuditLog({
       ...auditContext(req, user),

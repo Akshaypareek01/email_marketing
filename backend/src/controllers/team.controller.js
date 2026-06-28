@@ -1,5 +1,7 @@
 import { User } from '../models/User.js';
+import { Tenant } from '../models/Tenant.js';
 import { inviteTeamMember } from '../services/team.service.js';
+import { assertCanAddTeamUser } from '../services/planLimits.service.js';
 import { writeAuditLog, auditContext } from '../services/audit.service.js';
 
 /**
@@ -25,6 +27,12 @@ export async function inviteUser(req, res, next) {
     if (!email?.trim() || !name?.trim()) {
       return res.status(400).json({ message: 'email and name are required' });
     }
+
+    // Enforce trial window + plan seat allowance before creating the user.
+    const tenant = await Tenant.findById(req.user.tenantId);
+    if (!tenant) return res.status(404).json({ message: 'Account not found' });
+    const userCount = await User.countDocuments({ tenantId: req.user.tenantId });
+    assertCanAddTeamUser(tenant, userCount);
 
     const result = await inviteTeamMember(req.user, { email, name, role });
 

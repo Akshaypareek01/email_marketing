@@ -29,13 +29,13 @@ function Gauge({
       >
         {value == null ? '—' : `${value}%`}
       </p>
-      <p className="text-xs text-muted-foreground">AWS limit {limit}</p>
+      <p className="text-xs text-muted-foreground">Limit {limit}</p>
     </div>
   );
 }
 
 /**
- * Super-admin SES health: kill switch, platform metrics, auto-protect status, tenant risk ranking.
+ * Super-admin sender health: kill switch, platform metrics, auto-protect status, tenant risk ranking.
  */
 export default function AdminReputationPage() {
   const [data, setData] = useState<AdminOverview | null>(null);
@@ -122,7 +122,7 @@ export default function AdminReputationPage() {
 
   return (
     <AdminShell
-      title="SES Health"
+      title="Sender Health"
       action={
         <Badge tone={halted ? 'danger' : protectActive ? 'warning' : 'success'}>
           {halted ? 'Sending halted' : protectActive ? 'Auto-protect active' : 'Sending active'}
@@ -211,7 +211,7 @@ export default function AdminReputationPage() {
           <Card>
             <CardHeader
               title="Account-wide deliverability"
-              subtitle="Rolling-window aggregate across all tenants on the shared SES account."
+              subtitle="Rolling-window aggregate across all tenants on the shared sending account."
             />
             <CardBody>
               <div className="grid gap-6 sm:grid-cols-3">
@@ -227,7 +227,7 @@ export default function AdminReputationPage() {
                 <p className="mt-4 text-xs text-muted-foreground">
                   Auto-protect last evaluated {new Date(platformProtect.lastEvaluatedAt).toLocaleString()}
                   {platformProtect.severityRatio != null && platformProtect.triggerRatio != null
-                    ? ` · severity ${Math.round(platformProtect.severityRatio * 100)}% of AWS limit (trigger ${Math.round(platformProtect.triggerRatio * 100)}%)`
+                    ? ` · severity ${Math.round(platformProtect.severityRatio * 100)}% of limit (trigger ${Math.round(platformProtect.triggerRatio * 100)}%)`
                     : ''}
                 </p>
               )}
@@ -237,7 +237,7 @@ export default function AdminReputationPage() {
           <Card>
             <CardHeader
               title="Tenant risk ranking"
-              subtitle="Highest-risk senders paused first when platform metrics approach AWS thresholds (PRD §6.4)."
+              subtitle="Highest-risk senders paused first when platform metrics approach deliverability thresholds (PRD §6.4)."
             />
             <CardBody>
               {ranking.length === 0 ? (
@@ -290,7 +290,7 @@ export default function AdminReputationPage() {
               <ul className="space-y-3 text-sm text-muted-foreground">
                 <li>
                   <span className="font-medium text-foreground">Platform auto-protect</span> — pauses up to 3
-                  highest-risk tenants when aggregate bounce/complaint hits 75% of AWS limits.
+                  highest-risk tenants when aggregate bounce/complaint hits 75% of limits.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Per-tenant auto-pause</span> — warn then restrict

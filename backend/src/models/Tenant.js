@@ -14,6 +14,8 @@ const subscriptionSchema = new mongoose.Schema(
       enum: ['trialing', 'active', 'past_due', 'canceled'],
       default: 'trialing',
     },
+    /** When the free trial ends. Stamped at signup; null on legacy tenants (derived from createdAt). */
+    trialEndsAt: { type: Date, default: null },
     emailsSentThisPeriod: { type: Number, default: 0, min: 0 },
     periodStart: { type: Date, default: () => new Date() },
     /** Snapshot of plan quota so a mid-cycle plan edit can't retroactively change limits. */

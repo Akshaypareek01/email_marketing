@@ -54,8 +54,8 @@ export function ThreadList({
             onClick={onRefresh}
             disabled={syncLoading || !mailboxId}
             className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-            title="Sync from Stalwart (IMAP)"
-            aria-label="Sync inbox from Stalwart"
+            title="Sync inbox"
+            aria-label="Sync inbox"
           >
             <i className={syncLoading ? 'ri-loader-4-line animate-spin' : 'ri-refresh-line'} />
           </button>

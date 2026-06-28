@@ -114,8 +114,18 @@ async function fetchBlob(path: string, token: string): Promise<Blob> {
 export const api = {
   health: () => request<{ status: string }>('/health'),
 
-  register: (body: { name: string; email: string; password: string; tenantName: string }) =>
-    request('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
+  register: (body: {
+    name: string;
+    email: string;
+    password: string;
+    tenantName: string;
+    phoneCountryCode: string;
+    phone: string;
+  }) =>
+    request<AuthResponse & { devVerifyCode?: string }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   login: (body: { email: string; password: string }) =>
     request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
@@ -133,25 +143,26 @@ export const api = {
     }),
 
   forgotPassword: (email: string) =>
-    request<{ message: string; devResetUrl?: string }>('/auth/forgot-password', {
+    request<{ message: string; devResetCode?: string }>('/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email }),
     }),
 
-  resetPassword: (token: string, password: string) =>
+  resetPassword: (email: string, code: string, password: string) =>
     request<{ message: string }>('/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, password }),
+      body: JSON.stringify({ email, code, password }),
     }),
 
-  verifyEmail: (token: string) =>
-    request<{ message: string; email?: string }>('/auth/verify-email', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    }),
+  verifyEmail: (token: string, code: string) =>
+    request<{ message: string; email?: string }>(
+      '/auth/verify-email',
+      { method: 'POST', body: JSON.stringify({ code }) },
+      token
+    ),
 
   resendVerification: (token: string) =>
-    request<{ message: string; devVerifyUrl?: string }>(
+    request<{ message: string; devVerifyCode?: string }>(
       '/auth/resend-verification',
       { method: 'POST', body: JSON.stringify({}) },
       token

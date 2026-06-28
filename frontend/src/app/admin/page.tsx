@@ -86,8 +86,8 @@ export default function AdminDashboard() {
 
           <Card className="mt-6">
             <CardHeader
-              title="SES account health"
-              subtitle="Account-wide deliverability vs AWS limits (5% bounce · 0.1% complaint)"
+              title="Sender account health"
+              subtitle="Account-wide deliverability vs limits (5% bounce · 0.1% complaint)"
               action={
                 data?.ses.platformProtect?.active ? (
                   <Badge tone="warning">Auto-protect active</Badge>
@@ -116,9 +116,9 @@ export default function AdminDashboard() {
                 ))}
               </div>
               <p className="mt-4 text-xs text-muted-foreground">
-                Full SES control center and tenant risk ranking:{' '}
+                Full deliverability control center and tenant risk ranking:{' '}
                 <Link href="/admin/reputation" className="text-[var(--primary)] hover:underline">
-                  SES Health
+                  Sender Health
                 </Link>
               </p>
             </CardBody>
@@ -126,15 +126,15 @@ export default function AdminDashboard() {
 
           <Card className="mt-6">
             <CardHeader
-              title="AWS SES usage & estimated cost"
-              subtitle="Live account quota from AWS plus month-to-date volume and estimated spend"
+              title="Sending usage & estimated cost"
+              subtitle="Live account quota plus month-to-date volume and estimated spend"
               action={
                 data?.ses.account ? (
                   <Badge tone={data.ses.account.productionAccessEnabled ? 'success' : 'warning'}>
                     {data.ses.account.productionAccessEnabled ? 'Production access' : 'Sandbox'}
                   </Badge>
                 ) : (
-                  <Badge tone="warning">AWS account unavailable</Badge>
+                  <Badge tone="warning">Account unavailable</Badge>
                 )
               }
             />
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     <Link href="/admin/reputation" className="text-[var(--primary)] hover:underline">
-                      edit in SES Health
+                      edit in Sender Health
                     </Link>
                   </p>
                 </div>
@@ -161,7 +161,7 @@ export default function AdminDashboard() {
                       ? dailyLimit === 0
                         ? 'unlimited remaining'
                         : `${(dailyUsage.remaining ?? 0).toLocaleString()} remaining`
-                      : `AWS rate ${data?.ses.account?.maxSendRate ?? '—'}/s`}
+                      : `Send rate ${data?.ses.account?.maxSendRate ?? '—'}/s`}
                   </p>
                 </div>
                 <div>
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-muted-foreground">month-to-date</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Estimated SES cost</p>
+                  <p className="text-sm text-muted-foreground">Estimated cost</p>
                   <p className="mt-1 text-2xl font-bold" style={{ color: 'var(--accent)' }}>
                     {data?.ses.usage
                       ? `$${data.ses.usage.estimatedCostUsd.toFixed(2)}`

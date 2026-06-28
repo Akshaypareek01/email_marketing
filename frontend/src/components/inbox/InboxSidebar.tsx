@@ -66,10 +66,10 @@ export function InboxSidebar({
         )}
         <p className="mb-3 text-[0.72rem] text-muted-foreground">
           {syncLoading
-            ? 'Syncing from Stalwart…'
+            ? 'Syncing…'
             : lastSyncAt
               ? `Synced ${formatInboxTime(lastSyncAt)} · ${mailboxAddress || '—'}`
-              : `Receiving as ${mailboxAddress || '—'} (MX → Stalwart → sync)`}
+              : `Receiving as ${mailboxAddress || '—'}`}
         </p>
         <button
           type="button"

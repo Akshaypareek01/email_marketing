@@ -56,7 +56,7 @@ export default function AdminSuppressionsPage() {
     setSyncMsg('');
     try {
       const res = await api.adminSyncSuppressions(token);
-      setSyncMsg(res.message || `Synced ${res.synced} addresses from AWS`);
+      setSyncMsg(res.message || `Synced ${res.synced} addresses`);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Sync failed');
@@ -70,12 +70,12 @@ export default function AdminSuppressionsPage() {
       title="Suppression list"
       action={
         <Button size="sm" loading={syncing} onClick={onSync}>
-          Sync from AWS
+          Sync suppressions
         </Button>
       }
     >
       <p className="mb-4 text-sm text-muted-foreground">
-        Global and per-tenant suppressed addresses. Bounces and complaints are added automatically via SES webhooks.
+        Global and per-tenant suppressed addresses. Bounces and complaints are added automatically.
       </p>
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
       {syncMsg && <p className="mb-4 text-sm text-[var(--accent)]">{syncMsg}</p>}

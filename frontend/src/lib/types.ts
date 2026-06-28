@@ -123,6 +123,10 @@ export interface AccountOverview {
     periodResetAt?: string;
     maxDomains: number;
     maxContacts: number;
+    maxTeamUsers?: number;
+    trialEndsAt?: string | null;
+    trialExpired?: boolean;
+    trialDaysLeft?: number | null;
   };
   sending: { paused: boolean; pauseReason: string; pauseSource: string };
   reputation: { sent: number; bounceRate: number; complaintRate: number };

@@ -13,7 +13,7 @@ const NAV = [
   { href: '/admin/plans', label: 'Plans' },
   { href: '/admin/transactions', label: 'Transactions' },
   { href: '/admin/audit', label: 'Audit' },
-  { href: '/admin/reputation', label: 'SES Health' },
+  { href: '/admin/reputation', label: 'Sender Health' },
   { href: '/admin/suppressions', label: 'Suppressions' },
   { href: '/admin/support', label: 'Support' },
 ];
@@ -26,7 +26,7 @@ function Icon({ name, className }: { name: string; className?: string }) {
     Plans: <><path d="M3 9h18" /><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 15h4" /></>,
     Transactions: <><path d="M3 3v18h18" /><path d="M7 16V8" /><path d="M12 16V5" /><path d="M17 16v-6" /></>,
     Audit: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></>,
-    'SES Health': <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /><path d="m9 12 2 2 4-4" /></>,
+    'Sender Health': <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /><path d="m9 12 2 2 4-4" /></>,
     Suppressions: <><path d="M18 6 6 18M6 6l12 12" /></>,
     Support: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></>,
   };
@@ -52,9 +52,8 @@ export function AdminShell({ title, action, children }: { title: string; action?
       {/* Sidebar — dark, distinct from tenant app */}
       <aside className="flex w-64 flex-col bg-slate-950 text-slate-300">
         <div className="flex items-center gap-2 border-b border-white/10 px-6 py-5">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--primary)] text-white">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Mail Box" className="h-8 w-8 rounded-[20px] object-cover" />
           <div>
             <p className="text-sm font-bold text-white">Mail Box</p>
             <p className="text-[11px] text-emerald-400">Admin Console</p>

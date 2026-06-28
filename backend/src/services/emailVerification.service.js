@@ -1,59 +1,72 @@
-import crypto from 'crypto';
 import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { EmailVerificationToken } from '../models/EmailVerificationToken.js';
 import { hashToken } from './authToken.service.js';
 import { sendVerificationEmail } from './transactionalEmail.service.js';
+import { generateOtp, OTP_EXPIRES_MS, MAX_OTP_ATTEMPTS } from '../utils/otp.js';
 import logger from '../middleware/logsCreate.js';
 
 /**
- * Issue a verification token for a user (invalidates prior unused tokens).
+ * Issue an email-verification OTP for a user (invalidates prior unused codes).
  * @param {import('../models/User.js').User} user
  */
 export async function issueEmailVerification(user) {
   await EmailVerificationToken.updateMany({ userId: user._id, usedAt: null }, { usedAt: new Date() });
 
-  const raw = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + env.auth.emailVerificationExpiresMs);
+  const code = generateOtp();
+  const expiresAt = new Date(Date.now() + OTP_EXPIRES_MS);
 
   await EmailVerificationToken.create({
     userId: user._id,
-    tokenHash: hashToken(raw),
+    tokenHash: hashToken(code),
     expiresAt,
   });
-
-  const verifyUrl = `${env.appUrl.replace(/\/$/, '')}/verify-email?token=${raw}`;
 
   await sendVerificationEmail({
     email: user.email,
     name: user.name,
-    verifyUrl,
+    code,
   });
 
-  // Never log the live verification URL/token.
+  // Never log the live code.
   logger.info({ tag: 'email-verify', email: user.email });
 
-  return { verifyUrl, devVerifyUrl: env.isProduction ? undefined : verifyUrl };
+  // Only expose the code out-of-band in non-production dev, never in production.
+  return { devCode: env.isProduction ? undefined : code };
 }
 
 /**
- * Mark a user's email verified using a token.
- * @param {string} rawToken
+ * Mark a user's email verified using a 6-digit OTP code.
+ * @param {import('../models/User.js').User} user
+ * @param {string} code
  */
-export async function verifyEmailWithToken(rawToken) {
-  const tokenHash = hashToken(rawToken);
-  const record = await EmailVerificationToken.findOne({ tokenHash, usedAt: null });
-  if (!record || record.expiresAt < new Date()) {
-    const err = new Error('Invalid or expired verification link');
+export async function verifyEmailWithCode(user, code) {
+  if (user.emailVerified) return user;
+
+  const record = await EmailVerificationToken.findOne({ userId: user._id, usedAt: null }).sort({
+    createdAt: -1,
+  });
+
+  const invalid = () => {
+    const err = new Error('Invalid or expired verification code');
     err.status = 400;
+    return err;
+  };
+
+  if (!record || record.expiresAt < new Date()) throw invalid();
+
+  if (record.attempts >= MAX_OTP_ATTEMPTS) {
+    record.usedAt = new Date();
+    await record.save();
+    const err = new Error('Too many incorrect attempts. Request a new code.');
+    err.status = 429;
     throw err;
   }
 
-  const user = await User.findById(record.userId);
-  if (!user) {
-    const err = new Error('Invalid or expired verification link');
-    err.status = 400;
-    throw err;
+  if (record.tokenHash !== hashToken(String(code).trim())) {
+    record.attempts += 1;
+    await record.save();
+    throw invalid();
   }
 
   user.emailVerified = true;

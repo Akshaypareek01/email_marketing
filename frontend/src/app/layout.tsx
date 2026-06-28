@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Mail Box — Email Platform',
-  description: 'Multi-tenant email platform admin (SES + Stalwart)',
+  description: 'Multi-tenant email platform',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
