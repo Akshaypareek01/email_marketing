@@ -92,6 +92,26 @@ export async function billingWebhook(req, res) {
 }
 
 /**
+ * Reconcile the tenant's subscription with the billing provider after checkout.
+ * Razorpay activates plans via webhook, which can be delayed or unreachable (e.g.
+ * localhost dev). This pulls live status from the provider and activates immediately.
+ */
+export async function syncCheckoutStatus(req, res, next) {
+  try {
+    const billingConfig = await getBillingConfig();
+    if (billingConfig.mode !== 'provider') {
+      return res.json({ activated: false, status: 'direct' });
+    }
+    const provider = await getBillingProvider();
+    const result = await provider.syncSubscriptionStatus(req.user.tenantId);
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
+/**
  * Tenant billing history.
  */
 export async function listMyTransactions(req, res, next) {
@@ -115,14 +135,18 @@ export async function cancelSubscription(req, res, next) {
       const provider = await getBillingProvider();
       await provider.cancelSubscription(tenantId);
     } else {
+      // Direct mode: schedule cancellation for period end — keep access until then.
       const { Tenant } = await import('../models/Tenant.js');
       const tenant = await Tenant.findById(tenantId);
       if (!tenant) return res.status(404).json({ message: 'Tenant not found' });
-      tenant.subscription.status = 'canceled';
+      tenant.subscription.cancelAtPeriodEnd = true;
       await tenant.save();
     }
 
-    res.json({ message: 'Subscription canceled', canceled: true });
+    res.json({
+      message: 'Subscription canceled — your plan stays active until the end of the current billing period.',
+      canceled: true,
+    });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ message: err.message });
     next(err);

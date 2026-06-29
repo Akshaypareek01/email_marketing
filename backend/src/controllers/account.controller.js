@@ -54,6 +54,8 @@ export async function getAccountOverview(req, res, next) {
         trialEndsAt: sub.status === 'trialing' ? getTrialEndsAt(tenant) : null,
         trialExpired: isTrialExpired(tenant),
         trialDaysLeft: trialDaysLeft(tenant),
+        cancelAtPeriodEnd: sub.cancelAtPeriodEnd || false,
+        canceledAt: sub.canceledAt || null,
         periodResetAt: (() => {
           const d = new Date(sub.periodStart || Date.now());
           d.setMonth(d.getMonth() + 1);

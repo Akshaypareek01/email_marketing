@@ -90,6 +90,8 @@ export interface SessionUser {
   role?: Role;
   tenantId?: string;
   emailVerified?: boolean;
+  phone?: string;
+  phoneCountryCode?: string;
 }
 
 export interface AuthResponse {
@@ -127,6 +129,8 @@ export interface AccountOverview {
     trialEndsAt?: string | null;
     trialExpired?: boolean;
     trialDaysLeft?: number | null;
+    cancelAtPeriodEnd?: boolean;
+    canceledAt?: string | null;
   };
   sending: { paused: boolean; pauseReason: string; pauseSource: string };
   reputation: { sent: number; bounceRate: number; complaintRate: number };

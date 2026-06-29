@@ -58,9 +58,16 @@ export async function loadTenantForSend(tenantId) {
   let dirty = false;
 
   if (periodElapsed(tenant.subscription?.periodStart)) {
-    tenant.subscription.periodStart = new Date();
-    tenant.subscription.emailsSentThisPeriod = 0;
-    tenant.subscription.quotaBonusThisPeriod = 0;
+    if (tenant.subscription?.cancelAtPeriodEnd) {
+      // Scheduled cancellation takes effect now — the paid period has ended.
+      tenant.subscription.status = 'canceled';
+      tenant.subscription.cancelAtPeriodEnd = false;
+      tenant.subscription.canceledAt = new Date();
+    } else {
+      tenant.subscription.periodStart = new Date();
+      tenant.subscription.emailsSentThisPeriod = 0;
+      tenant.subscription.quotaBonusThisPeriod = 0;
+    }
     dirty = true;
   }
 

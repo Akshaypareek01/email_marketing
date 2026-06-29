@@ -141,8 +141,12 @@ export class StripeBillingProvider extends BillingProvider {
       throw new Error('No active Stripe subscription');
     }
 
-    await stripe.subscriptions.cancel(tenant.billing.stripeSubscriptionId);
-    tenant.subscription.status = 'canceled';
+    // Schedule cancellation at period end so the tenant keeps access they paid for.
+    // Stripe fires customer.subscription.deleted when the period actually ends.
+    await stripe.subscriptions.update(tenant.billing.stripeSubscriptionId, {
+      cancel_at_period_end: true,
+    });
+    tenant.subscription.cancelAtPeriodEnd = true;
     await tenant.save();
     return { canceled: true };
   }

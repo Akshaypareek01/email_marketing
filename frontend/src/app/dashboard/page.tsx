@@ -59,6 +59,17 @@ export default function DashboardPage() {
         </div>
       ) : account ? (
         <>
+          {account.subscription.trialExpired && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
+              <span>
+                Your free trial has ended. Choose a plan to keep sending email and run campaigns.
+              </span>
+              <Link href="/dashboard/billing" className="font-semibold underline underline-offset-2">
+                Choose a plan
+              </Link>
+            </div>
+          )}
+
           <div className="mb-6 grid gap-4 lg:grid-cols-2">
             <QuotaBar
               used={account.subscription.emailsSentThisPeriod}
@@ -66,6 +77,7 @@ export default function DashboardPage() {
               remaining={account.subscription.remaining}
               usedPct={account.subscription.usedPct}
               planName={account.subscription.planName}
+              trialExpired={account.subscription.trialExpired}
             />
             <ReputationWidget
               bounceRate={account.reputation.bounceRate}

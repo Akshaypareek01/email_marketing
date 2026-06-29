@@ -117,6 +117,89 @@ export class RazorpayBillingProvider extends BillingProvider {
   }
 
   /**
+   * Activate a tenant's plan from a confirmed Razorpay subscription and record the payment.
+   * Shared by the webhook and the on-return sync path so both behave identically and
+   * idempotently (transaction is deduped by subscription id).
+   * @param {string} tenantId
+   * @param {string} planId
+   * @param {string} subId Razorpay subscription id
+   * @param {string} source label for the recorded transaction / logs
+   */
+  async #activateSubscription(tenantId, planId, subId, source) {
+    await applyPlanToTenant(tenantId, planId, { status: 'active' });
+    await resetQuotaOnRenewal(tenantId);
+    await deactivateSystemNotice(tenantId, 'billing_past_due');
+    await deactivateSystemNotice(tenantId, 'billing_canceled');
+
+    const tenant = await Tenant.findById(tenantId);
+    if (tenant && subId) {
+      tenant.billing = tenant.billing || {};
+      tenant.billing.razorpaySubscriptionId = subId;
+      await tenant.save();
+    }
+
+    const plan = await Plan.findById(planId);
+    await recordTransaction({
+      tenantId,
+      planId,
+      provider: 'razorpay',
+      externalId: subId || `razorpay-${tenantId}-${planId}`,
+      amountMinor: plan?.priceMinor ?? 0,
+      currency: plan?.currency ?? 'INR',
+      status: 'paid',
+      description: `Razorpay ${source} — ${plan?.name || 'subscription'}`,
+      metadata: { subscriptionId: subId, source },
+    });
+  }
+
+  /**
+   * Reconcile a tenant's subscription by fetching its live status from Razorpay.
+   * Used when the user returns from checkout (webhooks may be delayed or unreachable,
+   * e.g. localhost). Activates the plan when Razorpay reports the subscription as paid.
+   * @param {string} tenantId
+   * @returns {Promise<{ activated: boolean, status: string, planId?: string }>}
+   */
+  async syncSubscriptionStatus(tenantId) {
+    const tenant = await Tenant.findById(tenantId);
+    if (!tenant) throw new Error('Tenant not found');
+
+    const subId = tenant.billing?.razorpaySubscriptionId;
+    if (!subId) return { activated: false, status: 'none' };
+
+    const sub = await this.#rz().subscriptions.fetch(subId);
+    const status = sub?.status || 'unknown';
+    const planId = sub?.notes?.planId || (tenant.subscription?.planId ? String(tenant.subscription.planId) : null);
+
+    // Razorpay marks a subscription 'active' once its first invoice is paid; 'charged'
+    // covers renewals. (A subscription scheduled to cancel at cycle end stays 'active'
+    // until the cycle actually ends, then moves to 'cancelled'.)
+    const paidStatuses = ['active', 'charged'];
+    if (planId && paidStatuses.includes(status)) {
+      const alreadyActive =
+        tenant.subscription?.status === 'active' &&
+        String(tenant.subscription?.planId) === String(planId);
+      if (!alreadyActive) {
+        await this.#activateSubscription(tenantId, planId, subId, `subscription ${status}`);
+      }
+      return { activated: true, status, planId: String(planId) };
+    }
+
+    // Terminal states — reconcile a locally-active subscription to canceled (covers the
+    // case where the cancellation webhook never reached us, e.g. localhost).
+    const endedStatuses = ['cancelled', 'completed', 'expired', 'halted'];
+    if (endedStatuses.includes(status) && tenant.subscription?.status === 'active') {
+      tenant.subscription.status = 'canceled';
+      tenant.subscription.cancelAtPeriodEnd = false;
+      tenant.subscription.canceledAt = new Date();
+      tenant.billing = tenant.billing || {};
+      tenant.billing.razorpaySubscriptionId = '';
+      await tenant.save();
+    }
+
+    return { activated: false, status };
+  }
+
+  /**
    * @param {Buffer | string} rawBody
    * @param {string} signature
    */
@@ -134,31 +217,7 @@ export class RazorpayBillingProvider extends BillingProvider {
       case 'subscription.activated':
       case 'subscription.charged':
         if (tenantId && planId) {
-          await applyPlanToTenant(tenantId, planId, { status: 'active' });
-          await resetQuotaOnRenewal(tenantId);
-          await deactivateSystemNotice(tenantId, 'billing_past_due');
-          await deactivateSystemNotice(tenantId, 'billing_canceled');
-          const tenant = await Tenant.findById(tenantId);
-          if (tenant && entity?.id) {
-            tenant.billing = tenant.billing || {};
-            tenant.billing.razorpaySubscriptionId = entity.id;
-            await tenant.save();
-          }
-          const plan = await Plan.findById(planId);
-          await recordTransaction({
-            tenantId,
-            planId,
-            provider: 'razorpay',
-            externalId: entity.id || event.event,
-            amountMinor: plan?.priceMinor ?? entity?.amount ?? 0,
-            currency: plan?.currency ?? 'INR',
-            status: 'paid',
-            description: `Razorpay ${event.event}`,
-            metadata: {
-              subscriptionId: entity.id,
-              paymentId: entity.payment_id || entity.id,
-            },
-          });
+          await this.#activateSubscription(tenantId, planId, entity?.id, event.event);
         }
         break;
       case 'subscription.cancelled':
@@ -167,6 +226,8 @@ export class RazorpayBillingProvider extends BillingProvider {
           const tenant = await Tenant.findById(tenantId);
           if (tenant) {
             tenant.subscription.status = 'canceled';
+            tenant.subscription.cancelAtPeriodEnd = false;
+            tenant.subscription.canceledAt = new Date();
             tenant.billing = tenant.billing || {};
             tenant.billing.razorpaySubscriptionId = '';
             await tenant.save();
@@ -247,9 +308,10 @@ export class RazorpayBillingProvider extends BillingProvider {
     const subId = tenant?.billing?.razorpaySubscriptionId;
     if (!subId) throw new Error('No active Razorpay subscription');
 
-    await this.#rz().subscriptions.cancel(subId, { cancel_at_cycle_end: 0 });
-    tenant.subscription.status = 'canceled';
-    tenant.billing.razorpaySubscriptionId = '';
+    // cancel_at_cycle_end: 1 keeps the subscription live until the paid period ends.
+    // Note: Razorpay cancellation is terminal — it cannot be resumed once scheduled.
+    await this.#rz().subscriptions.cancel(subId, { cancel_at_cycle_end: 1 });
+    tenant.subscription.cancelAtPeriodEnd = true;
     await tenant.save();
     return { canceled: true };
   }

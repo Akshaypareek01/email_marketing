@@ -230,7 +230,7 @@ export function CardBody({ className, children }: { className?: string; children
 }
 
 /* ------------------------------- Badge ------------------------------- */
-type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'primary';
+export type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info' | 'primary';
 const toneCls: Record<Tone, string> = {
   neutral: 'bg-slate-100 text-slate-600',
   success: 'bg-emerald-100 text-emerald-700',
@@ -287,4 +287,68 @@ export function EmptyState({ icon, title, message, action }: { icon?: ReactNode;
 
 export function Skeleton({ className }: { className?: string }) {
   return <div className={cn('animate-pulse rounded-md bg-slate-200/70', className)} />;
+}
+
+/* --------------------------- ConfirmDialog --------------------------- */
+interface ConfirmDialogProps {
+  open: boolean;
+  title: string;
+  message?: ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: 'danger' | 'primary';
+  loading?: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}
+
+/**
+ * Accessible confirmation modal — the production replacement for window.confirm.
+ * Backdrop click and Cancel both dismiss; the confirm button shows a loading state.
+ */
+export function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  tone = 'danger',
+  loading = false,
+  onConfirm,
+  onClose,
+}: ConfirmDialogProps) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-dialog-title"
+      onClick={() => !loading && onClose()}
+    >
+      <div
+        className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="confirm-dialog-title" className="text-lg font-semibold">
+          {title}
+        </h2>
+        {message && <div className="mt-2 text-sm text-muted-foreground">{message}</div>}
+        <div className="mt-6 flex justify-end gap-3">
+          <Button type="button" variant="outline" size="sm" disabled={loading} onClick={onClose}>
+            {cancelLabel}
+          </Button>
+          <Button
+            type="button"
+            variant={tone === 'danger' ? 'destructive' : 'primary'}
+            size="sm"
+            loading={loading}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }

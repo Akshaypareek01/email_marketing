@@ -43,6 +43,17 @@ export class BillingProvider {
   async createQuotaAddonCheckout(_tenantId, _pack) {
     throw new Error('Billing provider not configured');
   }
+
+  /**
+   * Reconcile a tenant's subscription against the provider's live state.
+   * Providers that rely solely on webhooks can override this to support
+   * on-return verification. Default is a no-op.
+   * @param {string} _tenantId
+   * @returns {Promise<{ activated: boolean, status: string, planId?: string }>}
+   */
+  async syncSubscriptionStatus(_tenantId) {
+    return { activated: false, status: 'unsupported' };
+  }
 }
 
 /** Singleton placeholder until Phase 1a provider is wired. */

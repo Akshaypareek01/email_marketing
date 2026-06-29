@@ -16,6 +16,7 @@ import type {
   BillingTransaction,
   TicketStatus,
   AuthResponse,
+  SessionUser,
   AuditLogEntry,
   SystemNotice,
   AdminAnalytics,
@@ -170,6 +171,23 @@ export const api = {
 
   me: (token: string) => request<{ user: unknown }>('/auth/me', {}, token),
 
+  updateProfile: (
+    token: string,
+    body: { name?: string; phone?: string; phoneCountryCode?: string }
+  ) =>
+    request<{ user: SessionUser }>(
+      '/auth/profile',
+      { method: 'PATCH', body: JSON.stringify(body) },
+      token
+    ),
+
+  changePassword: (token: string, body: { currentPassword: string; newPassword: string }) =>
+    request<{ message: string }>(
+      '/auth/change-password',
+      { method: 'POST', body: JSON.stringify(body) },
+      token
+    ),
+
   listDomains: (token: string) => request<{ domains: unknown[] }>('/domains', {}, token),
 
   getDomain: (token: string, id: string) =>
@@ -247,6 +265,13 @@ export const api = {
       checkoutUrl?: string;
       subscription?: { planId: string; planName: string; status: string; monthlyEmailQuota: number };
     }>('/billing/checkout', { method: 'POST', body: JSON.stringify({ planId }) }, token),
+
+  billingSyncCheckout: (token: string) =>
+    request<{ activated: boolean; status: string; planId?: string }>(
+      '/billing/sync',
+      { method: 'POST', body: '{}' },
+      token
+    ),
 
   listBillingTransactions: (token: string) =>
     request<{ transactions: BillingTransaction[] }>('/billing/transactions', {}, token),

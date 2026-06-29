@@ -36,7 +36,9 @@ const NAV_GROUPS: { title: string; links: NavLink[] }[] = [
     title: 'Account',
     links: [
       { href: '/dashboard/billing', label: 'Billing', adminOnly: true },
+      { href: '/dashboard/transactions', label: 'Transactions', adminOnly: true },
       { href: '/dashboard/team', label: 'Team', adminOnly: true },
+      { href: '/dashboard/profile', label: 'Profile' },
       { href: '/dashboard/support', label: 'Support' },
     ],
   },
@@ -55,7 +57,9 @@ function Icon({ name, className }: { name: string; className?: string }) {
     'Send email': <><path d="M12 19V5M5 12l7-7 7 7" /></>,
     Events: <><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>,
     Billing: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></>,
+    Transactions: <><path d="M3 3v18h18" /><path d="M7 14l3-3 3 3 5-5" /><path d="M17 9h2v2" /></>,
     Team: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
+    Profile: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" /></>,
     Support: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></>,
   };
   return (

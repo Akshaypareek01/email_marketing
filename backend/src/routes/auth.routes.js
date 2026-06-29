@@ -10,6 +10,8 @@ import {
   resetPasswordHandler,
   resendVerification,
   verifyEmail,
+  updateProfile,
+  changePassword,
 } from '../controllers/auth.controller.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -90,5 +92,29 @@ router.post(
 router.post('/resend-verification', authenticate, resendVerification);
 
 router.get('/me', authenticate, me);
+
+router.patch(
+  '/profile',
+  authenticate,
+  [
+    body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
+    body('phone').optional().trim(),
+    body('phoneCountryCode').optional().trim(),
+  ],
+  validate,
+  updateProfile
+);
+
+router.post(
+  '/change-password',
+  authenticate,
+  authRateLimit,
+  [
+    body('currentPassword').notEmpty(),
+    body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  ],
+  validate,
+  changePassword
+);
 
 export default router;

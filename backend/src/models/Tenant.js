@@ -25,6 +25,10 @@ const subscriptionSchema = new mongoose.Schema(
     maxDomains: { type: Number, default: 1, min: 0 },
     maxContacts: { type: Number, default: 500, min: 0 },
     maxTeamUsers: { type: Number, default: 1, min: 0 },
+    /** Set when the user cancels — subscription stays active until the period rolls over, then flips to canceled. */
+    cancelAtPeriodEnd: { type: Boolean, default: false },
+    /** Stamped when the subscription is actually canceled (immediately or at period end). */
+    canceledAt: { type: Date, default: null },
   },
   { _id: false }
 );

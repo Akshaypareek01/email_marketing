@@ -9,12 +9,17 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   EmptyState,
   Skeleton,
 } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { formatDate, formatPrice } from '@/lib/format';
+import {
+  showCancelAtPeriodEndNotice,
+  subscriptionPeriodDate,
+} from '@/lib/subscription';
 import type { AccountOverview, BillingTransaction, Plan, QuotaAddonPack } from '@/lib/types';
 
 /**
@@ -35,6 +40,9 @@ export default function BillingPage() {
   const [actionPlanId, setActionPlanId] = useState<string | null>(null);
   const [buyingPackId, setBuyingPackId] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<BillingTransaction[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [canceling, setCanceling] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
@@ -50,11 +58,61 @@ export default function BillingPage() {
     setPlans((planRes?.plans || []).filter((p) => p.isActive && p.isPublic));
     setTransactions(txRes?.transactions || []);
     setQuotaPacks(packRes?.packs || []);
+    return acct;
   }, []);
 
+  /**
+   * Reconcile with the payment provider after returning from checkout. Razorpay
+   * activates via webhook (often delayed or unreachable on localhost), so we pull
+   * live status and activate immediately. `manual` surfaces a result message.
+   */
+  const runSync = useCallback(
+    async ({ manual }: { manual: boolean }) => {
+      const token = getToken();
+      if (!token) return;
+      setSyncing(true);
+      if (manual) {
+        setError('');
+        setNotice('');
+      }
+      try {
+        const res = await api.billingSyncCheckout(token);
+        if (res.activated) {
+          setNotice('Payment confirmed — your plan is now active.');
+          await load();
+        } else if (manual) {
+          setNotice(
+            res.status === 'none'
+              ? 'No pending payment found. Pick a plan to subscribe.'
+              : `Payment not confirmed yet (status: ${res.status}). If you just paid, wait a moment and refresh again.`
+          );
+        }
+      } catch (err) {
+        if (manual) setError(err instanceof ApiError ? err.message : 'Could not verify payment');
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [load]
+  );
+
   useEffect(() => {
-    load().finally(() => setLoading(false));
-  }, [load]);
+    (async () => {
+      const acct = await load();
+      // Strip the post-checkout query param so a refresh doesn't re-trigger.
+      const params = new URLSearchParams(window.location.search);
+      const returnedFromCheckout =
+        params.has('razorpay_subscription') || params.get('razorpay') === 'success';
+      if (returnedFromCheckout) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+      // Auto-reconcile when a subscription may be pending (just returned from
+      // checkout, or status not yet active). Cheap no-op when nothing is pending.
+      if (returnedFromCheckout || (acct && acct.subscription.status !== 'active')) {
+        await runSync({ manual: false });
+      }
+    })().finally(() => setLoading(false));
+  }, [load, runSync]);
 
   const currentPlan = useMemo(
     () => plans.find((p) => p._id === account?.subscription.planId),
@@ -109,16 +167,20 @@ export default function BillingPage() {
     }
   }
 
-  async function onCancel() {
+  async function onConfirmCancel() {
     const token = getToken();
-    if (!token || !confirm('Cancel your subscription? Sending will stop at period end.')) return;
+    if (!token) return;
     setError('');
+    setCanceling(true);
     try {
-      await api.billingCancel(token);
-      setNotice('Subscription canceled.');
+      const res = await api.billingCancel(token);
+      setNotice(res.message || 'Subscription canceled.');
+      setConfirmOpen(false);
       await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Cancel failed');
+    } finally {
+      setCanceling(false);
     }
   }
 
@@ -175,19 +237,58 @@ export default function BillingPage() {
                   <dd className="mt-0.5 font-medium">{formatDate(account.subscription.periodStart)}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Resets on</dt>
+                  <dt className="text-muted-foreground">
+                    {account.subscription.status === 'trialing'
+                      ? 'Trial ends on'
+                      : 'Resets on'}
+                  </dt>
                   <dd className="mt-0.5 font-medium">
-                    {account.subscription.periodResetAt
-                      ? formatDate(account.subscription.periodResetAt)
-                      : '—'}
+                    {formatDate(subscriptionPeriodDate(account.subscription))}
                   </dd>
                 </div>
               </dl>
-              {account.subscription.status === 'active' && account.subscription.planId && (
-                <div className="mt-4">
-                  <Button type="button" variant="outline" size="sm" onClick={onCancel}>
-                    Cancel subscription
+              {account.subscription.status === 'trialing' && (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {account.subscription.trialExpired ? (
+                    <>
+                      Your free trial has ended. Pick a plan below to continue sending.
+                    </>
+                  ) : (
+                    <>
+                      Free trial — {account.subscription.trialDaysLeft ?? 0} day
+                      {account.subscription.trialDaysLeft === 1 ? '' : 's'} left. Trials do not
+                      auto-renew; subscribe before it ends.
+                    </>
+                  )}
+                </p>
+              )}
+              {account.subscription.status === 'active' &&
+                account.subscription.planId &&
+                (showCancelAtPeriodEndNotice(account.subscription) ? (
+                  <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Your plan will not renew — active until {formatDate(account.subscription.periodResetAt)}.
+                  </p>
+                ) : (
+                  <div className="mt-4">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setConfirmOpen(true)}>
+                      Cancel subscription
+                    </Button>
+                  </div>
+                ))}
+              {account.subscription.status !== 'active' && (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    loading={syncing}
+                    onClick={() => runSync({ manual: true })}
+                  >
+                    Refresh payment status
                   </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Already paid? Click to confirm and activate your plan.
+                  </span>
                 </div>
               )}
             </div>
@@ -291,6 +392,23 @@ export default function BillingPage() {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Cancel subscription?"
+        message={
+          <>
+            Your plan stays active until the end of the current billing period
+            {account?.subscription.periodResetAt ? ` (${formatDate(account.subscription.periodResetAt)})` : ''}, then
+            sending will stop. This cannot be undone — you would need to subscribe again.
+          </>
+        }
+        confirmLabel="Yes, cancel"
+        cancelLabel="Keep plan"
+        loading={canceling}
+        onConfirm={onConfirmCancel}
+        onClose={() => !canceling && setConfirmOpen(false)}
+      />
     </DashboardShell>
   );
 }

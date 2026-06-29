@@ -12,6 +12,7 @@ import { requestPasswordReset, resetPasswordWithCode } from '../services/passwor
 import { issueEmailVerification, verifyEmailWithCode } from '../services/emailVerification.service.js';
 import { writeAuditLog, auditContext } from '../services/audit.service.js';
 import logger from '../middleware/logsCreate.js';
+import { toSessionUser } from '../utils/sessionUser.js';
 
 /**
  * Build auth response payload with access + refresh tokens.
@@ -30,14 +31,7 @@ async function authPayload(user, req, tenant) {
   const body = {
     token,
     refreshToken,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      tenantId: user.tenantId,
-      emailVerified: Boolean(user.emailVerified),
-    },
+    user: toSessionUser(user),
   };
 
   if (tenant) {
@@ -233,5 +227,62 @@ export async function resetPasswordHandler(req, res, next) {
 }
 
 export async function me(req, res) {
-  res.json({ user: req.user });
+  res.json({ user: toSessionUser(req.user) });
+}
+
+/**
+ * Update the signed-in user's profile (name, phone). Email/role are not editable here.
+ */
+export async function updateProfile(req, res, next) {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const { name, phone, phoneCountryCode } = req.body;
+    if (typeof name === 'string' && name.trim()) user.name = name.trim();
+    if (typeof phone === 'string') user.phone = phone.trim();
+    if (typeof phoneCountryCode === 'string') user.phoneCountryCode = phoneCountryCode.trim();
+    await user.save();
+
+    await writeAuditLog({
+      ...auditContext(req, user),
+      action: 'auth.profile_updated',
+      targetType: 'user',
+      targetId: String(user._id),
+    });
+
+    res.json({ user: toSessionUser(user) });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
+/**
+ * Change the signed-in user's password after verifying their current one.
+ */
+export async function changePassword(req, res, next) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const ok = await user.comparePassword(currentPassword);
+    if (!ok) return res.status(400).json({ message: 'Current password is incorrect.' });
+
+    user.password = newPassword; // pre('save') hook re-hashes
+    await user.save();
+
+    await writeAuditLog({
+      ...auditContext(req, user),
+      action: 'auth.password_changed',
+      targetType: 'user',
+      targetId: String(user._id),
+    });
+
+    res.json({ message: 'Password updated.' });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
 }
