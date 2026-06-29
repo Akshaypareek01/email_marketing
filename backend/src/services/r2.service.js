@@ -34,12 +34,30 @@ function r2() {
   return _client;
 }
 
-const EXT = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png' };
+const EXT = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/svg+xml': 'svg' };
 
 /** Build a tenant-scoped, non-guessable object key. No PII in the key. */
 export function buildKycKey(tenantId, docType, mimeType) {
   const ext = EXT[mimeType] || 'bin';
   return `kyc/${tenantId}/${docType}/${crypto.randomUUID()}.${ext}`;
+}
+
+/**
+ * Public brand logo key (served via R2_PUBLIC_URL).
+ * @param {string} tenantId
+ * @param {string} domainId
+ * @param {string} mimeType
+ */
+export function buildBrandLogoKey(tenantId, domainId, mimeType) {
+  const ext = EXT[mimeType] || 'bin';
+  return `brand-logos/${tenantId}/${domainId}/${crypto.randomUUID()}.${ext}`;
+}
+
+/** Public URL for a brand logo object when R2_PUBLIC_URL is configured. */
+export function publicObjectUrl(key) {
+  const base = env.r2.publicUrl?.replace(/\/$/, '');
+  if (!base || !key) return '';
+  return `${base}/${key}`;
 }
 
 /** Presigned PUT for direct browser upload. Pins content-type at sign time. */

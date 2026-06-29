@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { DashboardShell } from '@/components/DashboardShell';
 import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 import { DnsRecordTable } from '@/components/DnsRecordTable';
+import { DeliverabilityTipsCard } from '@/components/domains/DeliverabilityTipsCard';
+import { DomainBrandingCard } from '@/components/domains/DomainBrandingCard';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button, Card, CardBody, Skeleton } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -111,6 +113,9 @@ export default function DomainDetailPage() {
           {error}
         </p>
       )}
+
+      <DeliverabilityTipsCard />
+      <DomainBrandingCard domain={domain} admin={admin} onUpdated={load} />
 
       <Card>
         <CardBody>

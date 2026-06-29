@@ -1,5 +1,7 @@
 import { Template } from '../models/Template.js';
 import { Mailbox } from '../models/Mailbox.js';
+import { Domain } from '../models/Domain.js';
+import { formatSenderAddress, resolveSenderDisplayName } from '../utils/senderAddress.js';
 import { hasUnsubscribeFooter } from '../services/contactsImport.service.js';
 import { sendEmail } from '../services/ses.service.js';
 import { loadTenantForSend, assertCanSend } from '../services/sendingGuard.service.js';
@@ -151,6 +153,10 @@ export async function testSendTemplate(req, res, next) {
     const mailbox = await Mailbox.findOne({ tenantId: req.user.tenantId }).sort({ createdAt: 1 });
     if (!mailbox) return res.status(422).json({ message: 'Add a mailbox before test sending' });
 
+    const domain = mailbox.domainId
+      ? await Domain.findOne({ _id: mailbox.domainId, tenantId: req.user.tenantId })
+      : null;
+
     const unsub = buildUnsubscribePageUrl(req.user.email, req.user.tenantId);
     const vars = contactMergeVars(
       { email: req.user.email, firstName: req.user.name?.split(' ')[0] },
@@ -160,7 +166,7 @@ export async function testSendTemplate(req, res, next) {
     const subject = `[Test] ${renderMergeTags(template.subject || template.name, vars)}`;
 
     await sendEmail({
-      from: mailbox.address,
+      from: formatSenderAddress(mailbox.address, resolveSenderDisplayName(mailbox, domain)),
       to: req.user.email,
       subject,
       html,

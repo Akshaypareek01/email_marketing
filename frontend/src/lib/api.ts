@@ -7,6 +7,7 @@ import type {
   Contact,
   ContactList,
   ContactStats,
+  Domain,
   ImportResult,
   Template,
   Campaign,
@@ -199,6 +200,26 @@ export const api = {
 
   verifyDomain: (token: string, id: string) =>
     request(`/domains/${id}/verify`, { method: 'POST' }, token),
+
+  updateDomainBranding: (
+    token: string,
+    id: string,
+    body: { fromDisplayName?: string; logoUrl?: string }
+  ) => request<{ domain: Domain }>(`/domains/${id}/branding`, { method: 'PATCH', body: JSON.stringify(body) }, token),
+
+  domainLogoUploadUrl: (token: string, id: string, mimeType: string) =>
+    request<{ uploadUrl: string; key: string; publicUrl: string; expiresIn: number }>(
+      `/domains/${id}/logo/upload-url`,
+      { method: 'POST', body: JSON.stringify({ mimeType }) },
+      token
+    ),
+
+  confirmDomainLogo: (token: string, id: string, key: string) =>
+    request<{ domain: Domain; publicUrl: string; bimiReady: boolean }>(
+      `/domains/${id}/logo/confirm`,
+      { method: 'POST', body: JSON.stringify({ key }) },
+      token
+    ),
 
   deleteDomain: (token: string, id: string) =>
     request(`/domains/${id}`, { method: 'DELETE' }, token),

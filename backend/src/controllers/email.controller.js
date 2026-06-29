@@ -16,6 +16,7 @@ import {
 import { isSuppressed } from '../services/suppression.service.js';
 import { assertEmailVerified } from '../services/emailVerification.service.js';
 import { getTenantConfigSetName } from '../services/sesConfigSet.service.js';
+import { formatSenderAddress, resolveSenderDisplayName } from '../utils/senderAddress.js';
 import { ingestSesEvent } from '../services/sesEvent.service.js';
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
@@ -73,6 +74,7 @@ function normalizeAttachments(raw = []) {
 async function appendOutboundToThread({
   tenantId,
   mailbox,
+  domain,
   thread,
   to,
   subject,
@@ -93,7 +95,7 @@ async function appendOutboundToThread({
   const configurationSetName = await getTenantConfigSetName(tenantId);
 
   const result = await sendEmail({
-    from: mailbox.address,
+    from: formatSenderAddress(mailbox.address, resolveSenderDisplayName(mailbox, domain)),
     to,
     subject,
     html,
@@ -199,6 +201,7 @@ export async function sendOutbound(req, res, next) {
     const result = await appendOutboundToThread({
       tenantId: req.user.tenantId,
       mailbox,
+      domain,
       thread,
       to,
       subject,

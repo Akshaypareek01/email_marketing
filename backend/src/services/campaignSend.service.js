@@ -1,6 +1,8 @@
 import crypto from 'crypto';
 import { UnrecoverableError } from 'bullmq';
+import { Domain } from '../models/Domain.js';
 import { Campaign } from '../models/Campaign.js';
+import { formatSenderAddress, resolveSenderDisplayName } from '../utils/senderAddress.js';
 import { CampaignRecipient } from '../models/CampaignRecipient.js';
 import { Contact } from '../models/Contact.js';
 import { Template } from '../models/Template.js';
@@ -116,6 +118,9 @@ export async function sendCampaignRecipient(campaignId, recipientId) {
     resolveFromMailbox(campaign),
     getTenantConfigSetName(campaign.tenantId),
   ]);
+  const domainDoc = mailbox?.domainId
+    ? await Domain.findOne({ _id: mailbox.domainId, tenantId: campaign.tenantId })
+    : null;
 
   if (!template || !mailbox) {
     campaign.status = 'failed';
@@ -151,7 +156,7 @@ export async function sendCampaignRecipient(campaignId, recipientId) {
     const rfcMessageId = `${crypto.randomUUID()}@${mailbox.address.split('@')[1] || 'mail'}`;
 
     const result = await sendEmail({
-      from: mailbox.address,
+      from: formatSenderAddress(mailbox.address, resolveSenderDisplayName(mailbox, domainDoc)),
       to: recipient.email,
       subject,
       html,

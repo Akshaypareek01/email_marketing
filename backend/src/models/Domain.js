@@ -5,7 +5,7 @@ const dnsRecordSchema = new mongoose.Schema(
     type: { type: String, required: true },
     host: { type: String, required: true },
     value: { type: String, required: true },
-    purpose: { type: String, enum: ['verification', 'dkim', 'spf', 'dmarc', 'mx', 'mail_from'], required: true },
+    purpose: { type: String, enum: ['verification', 'dkim', 'spf', 'dmarc', 'mx', 'mail_from', 'bimi'], required: true },
     verified: { type: Boolean, default: false },
   },
   { _id: true }
@@ -39,6 +39,13 @@ const domainSchema = new mongoose.Schema(
     dnsRecords: [dnsRecordSchema],
     lastCheckedAt: { type: Date },
     failureReason: { type: String },
+    /** Sender branding — display name + logo for inbox clients (BIMI) and templates. */
+    branding: {
+      fromDisplayName: { type: String, default: '', trim: true },
+      /** Public HTTPS URL (PNG/JPG in email; SVG for Gmail BIMI avatar). */
+      logoUrl: { type: String, default: '', trim: true },
+      logoStorageKey: { type: String, default: '', trim: true },
+    },
   },
   { timestamps: true }
 );

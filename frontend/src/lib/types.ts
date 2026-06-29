@@ -15,6 +15,10 @@ export interface Domain {
   status: DomainStatus;
   dnsRecords: DnsRecord[];
   sesIdentityArn?: string;
+  branding?: {
+    fromDisplayName?: string;
+    logoUrl?: string;
+  };
   createdAt: string;
 }
 

@@ -7,7 +7,13 @@ import {
   verifyDomainDnsRecords,
   computeVerifiedForSending,
   syncDomainDnsRecords,
+  syncBimiDnsRecord,
 } from '../services/domainDns.service.js';
+import {
+  updateDomainBranding,
+  createBrandLogoUploadUrl,
+  confirmBrandLogoUpload,
+} from '../services/domainBranding.service.js';
 import logger from '../middleware/logsCreate.js';
 
 export async function listDomains(req, res, next) {
@@ -105,6 +111,7 @@ export async function verifyDomain(req, res, next) {
     domain.dkimStatus = sesStatus.dkimStatus;
 
     syncDomainDnsRecords(domain, sesStatus.dkimTokens || []);
+    syncBimiDnsRecord(domain);
 
     const mailFromDomain = `mail.${domain.name}`;
     try {
@@ -150,6 +157,49 @@ export async function deleteDomain(req, res, next) {
     if (!domain) return res.status(404).json({ message: 'Domain not found' });
     res.json({ message: 'Domain removed' });
   } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Update sender display name and/or logo URL for a domain.
+ */
+export async function patchDomainBranding(req, res, next) {
+  try {
+    const domain = await updateDomainBranding(req.user.tenantId, req.params.id, req.body);
+    res.json({ domain });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
+/**
+ * Presigned URL to upload a brand logo (PNG/JPEG/SVG).
+ */
+export async function brandLogoUploadUrl(req, res, next) {
+  try {
+    const { mimeType } = req.body;
+    if (!mimeType) return res.status(400).json({ message: 'mimeType is required' });
+    const out = await createBrandLogoUploadUrl(req.user.tenantId, req.params.id, mimeType);
+    res.json(out);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
+/**
+ * Confirm brand logo upload and attach public URL + BIMI DNS row.
+ */
+export async function confirmBrandLogo(req, res, next) {
+  try {
+    const { key } = req.body;
+    if (!key) return res.status(400).json({ message: 'key is required' });
+    const result = await confirmBrandLogoUpload(req.user.tenantId, req.params.id, key);
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
     next(err);
   }
 }

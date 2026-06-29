@@ -20,7 +20,7 @@ import {
   showCancelAtPeriodEndNotice,
   subscriptionPeriodDate,
 } from '@/lib/subscription';
-import type { AccountOverview, BillingTransaction, Plan, PublicBillingConfig, QuotaAddonPack } from '@/lib/types';
+import type { AccountOverview, BillingTransaction, Plan } from '@/lib/types';
 
 /**
  * Resolve plan change button label from price comparison.
@@ -35,36 +35,37 @@ function planActionLabel(current: Plan | undefined, next: Plan): string {
 export default function BillingPage() {
   const [account, setAccount] = useState<AccountOverview | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [quotaPacks, setQuotaPacks] = useState<QuotaAddonPack[]>([]);
+  // const [quotaPacks, setQuotaPacks] = useState<QuotaAddonPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionPlanId, setActionPlanId] = useState<string | null>(null);
-  const [buyingPackId, setBuyingPackId] = useState<string | null>(null);
+  // const [buyingPackId, setBuyingPackId] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<BillingTransaction[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [addonConfirmPack, setAddonConfirmPack] = useState<QuotaAddonPack | null>(null);
-  const [billingConfig, setBillingConfig] = useState<PublicBillingConfig | null>(null);
+  // const [addonConfirmPack, setAddonConfirmPack] = useState<QuotaAddonPack | null>(null);
+  // const [billingConfig, setBillingConfig] = useState<PublicBillingConfig | null>(null);
   const [canceling, setCanceling] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     const token = getToken();
-    const [acct, planRes, txRes, packRes, configRes] = await Promise.all([
+    const [acct, planRes, txRes] = await Promise.all([
       token ? api.accountOverview(token).catch(() => null) : Promise.resolve(null),
       api.listPublicPlans().catch(() => ({ plans: [] })),
       token ? api.listBillingTransactions(token).catch(() => ({ transactions: [] })) : Promise.resolve({ transactions: [] }),
-      token ? api.listQuotaPacks(token).catch(() => ({ packs: [] })) : Promise.resolve({ packs: [] }),
-      api.getBillingConfig().catch(() => null),
+      // token ? api.listQuotaPacks(token).catch(() => ({ packs: [] })) : Promise.resolve({ packs: [] }),
+      // api.getBillingConfig().catch(() => null),
     ]);
     setAccount(acct);
     setPlans((planRes?.plans || []).filter((p) => p.isActive && p.isPublic));
     setTransactions(txRes?.transactions || []);
-    setQuotaPacks(packRes?.packs || []);
-    setBillingConfig(configRes);
+    // setQuotaPacks(packRes?.packs || []);
+    // setBillingConfig(configRes);
     return acct;
   }, []);
 
+  /*
   const runAddonSync = useCallback(
     async ({ manual }: { manual: boolean }) => {
       const token = getToken();
@@ -94,6 +95,7 @@ export default function BillingPage() {
     },
     [load]
   );
+  */
 
   /**
    * Reconcile with the payment provider after returning from checkout. Razorpay
@@ -135,25 +137,27 @@ export default function BillingPage() {
       const acct = await load();
       // Strip the post-checkout query param so a refresh doesn't re-trigger.
       const params = new URLSearchParams(window.location.search);
-      const addonStatus = params.get('addon');
+      // const addonStatus = params.get('addon');
       const returnedFromCheckout =
         params.has('razorpay_subscription') || params.get('razorpay') === 'success';
-      const returnedFromAddon = addonStatus === 'success' || addonStatus === 'canceled';
-      if (returnedFromCheckout || returnedFromAddon) {
+      // const returnedFromAddon = addonStatus === 'success' || addonStatus === 'canceled';
+      if (returnedFromCheckout) {
         window.history.replaceState({}, '', window.location.pathname);
       }
+      /*
       if (addonStatus === 'canceled') {
         setNotice('Add-on purchase canceled — no charge was made.');
       } else if (addonStatus === 'success') {
         await runAddonSync({ manual: false });
       }
+      */
       // Auto-reconcile when a subscription may be pending (just returned from
       // checkout, or status not yet active). Cheap no-op when nothing is pending.
       if (returnedFromCheckout || (acct && acct.subscription.status !== 'active')) {
         await runSync({ manual: false });
       }
     })().finally(() => setLoading(false));
-  }, [load, runSync, runAddonSync]);
+  }, [load, runSync]);
 
   const currentPlan = useMemo(
     () => plans.find((p) => p._id === account?.subscription.planId),
@@ -187,6 +191,7 @@ export default function BillingPage() {
     }
   }
 
+  /*
   async function onConfirmBuyAddon() {
     if (!addonConfirmPack) return;
     const packId = addonConfirmPack.id;
@@ -210,6 +215,7 @@ export default function BillingPage() {
       setBuyingPackId(null);
     }
   }
+  */
 
   async function onConfirmCancel() {
     const token = getToken();
@@ -229,7 +235,7 @@ export default function BillingPage() {
   }
 
   const currentPlanId = account?.subscription.planId;
-  const quotaBonus = account?.subscription.quotaBonusThisPeriod ?? 0;
+  // const quotaBonus = account?.subscription.quotaBonusThisPeriod ?? 0;
 
   return (
     <DashboardShell title="Billing & plans" subtitle="Manage your subscription and email quota">
@@ -256,7 +262,7 @@ export default function BillingPage() {
                 usedPct={account.subscription.usedPct}
                 planName={account.subscription.planName}
               />
-              {quotaBonus > 0 && (
+              {/* quotaBonus > 0 && (
                 <p className="mt-2 text-sm text-muted-foreground">
                   Includes{' '}
                   <span className="font-medium text-foreground">
@@ -270,7 +276,7 @@ export default function BillingPage() {
                     </>
                   )}
                 </p>
-              )}
+              ) */}
               <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                 <div>
                   <dt className="text-muted-foreground">Status</dt>
@@ -338,51 +344,11 @@ export default function BillingPage() {
             </div>
           )}
 
+          {/* Quota add-ons — disabled for now
           {hasActiveSubscription && quotaPacks.length > 0 && (
-            <div className="mb-8">
-              <h2 className="mb-1 text-lg font-semibold">Need more emails this month?</h2>
-              <p className="mb-4 text-sm text-muted-foreground">
-                One-time add-ons boost your quota for the current billing period only — they reset when
-                your plan renews. You will be asked to confirm before any charge.
-              </p>
-              <div className="grid gap-4 sm:grid-cols-3">
-                {quotaPacks.map((pack) => (
-                  <Card key={pack.id}>
-                    <CardBody>
-                      <p className="font-semibold">{pack.label}</p>
-                      <p className="mt-1 text-2xl font-bold">
-                        {formatPrice(pack.priceMinor, pack.currency)}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        +{pack.emails.toLocaleString()} emails this period
-                      </p>
-                      <Button
-                        className="mt-4 w-full"
-                        size="sm"
-                        loading={buyingPackId === pack.id}
-                        onClick={() => setAddonConfirmPack(pack)}
-                      >
-                        Buy add-on
-                      </Button>
-                    </CardBody>
-                  </Card>
-                ))}
-              </div>
-              {billingConfig?.paymentsEnabled && (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Paid via {billingConfig.provider === 'stripe' ? 'Stripe' : 'Razorpay'}. After paying,
-                  return here — bonus emails apply automatically.{' '}
-                  <button
-                    type="button"
-                    className="font-medium text-[var(--primary)] underline underline-offset-2"
-                    onClick={() => runAddonSync({ manual: true })}
-                  >
-                    Refresh add-on status
-                  </button>
-                </p>
-              )}
-            </div>
+            <div className="mb-8">...</div>
           )}
+          */}
 
           {transactions.length > 0 && (
             <div className="mb-8">
@@ -451,46 +417,9 @@ export default function BillingPage() {
         </>
       )}
 
-      <ConfirmDialog
-        open={Boolean(addonConfirmPack)}
-        title="Confirm add-on purchase"
-        tone="primary"
-        confirmLabel={
-          billingConfig?.paymentsEnabled
-            ? `Pay ${addonConfirmPack ? formatPrice(addonConfirmPack.priceMinor, addonConfirmPack.currency) : ''}`
-            : 'Add to quota'
-        }
-        cancelLabel="Cancel"
-        loading={Boolean(buyingPackId)}
-        message={
-          addonConfirmPack ? (
-            <>
-              <p>
-                You are buying <strong>{addonConfirmPack.label}</strong> for{' '}
-                <strong>{formatPrice(addonConfirmPack.priceMinor, addonConfirmPack.currency)}</strong>.
-              </p>
-              <p className="mt-2">
-                This adds <strong>+{addonConfirmPack.emails.toLocaleString()} emails</strong> to your quota
-                for the current billing period only.
-              </p>
-              {billingConfig?.paymentsEnabled ? (
-                <p className="mt-2">
-                  You will be redirected to{' '}
-                  {billingConfig.provider === 'stripe' ? 'Stripe' : 'Razorpay'} to complete payment.
-                  Emails are credited after payment succeeds.
-                </p>
-              ) : (
-                <p className="mt-2 text-amber-800">
-                  Billing is in direct mode — no payment gateway charge. Quota is applied immediately
-                  (admin/dev setup).
-                </p>
-              )}
-            </>
-          ) : null
-        }
-        onConfirm={onConfirmBuyAddon}
-        onClose={() => !buyingPackId && setAddonConfirmPack(null)}
-      />
+      {/* Add-on purchase confirm — disabled for now
+      <ConfirmDialog ... />
+      */}
 
       <ConfirmDialog
         open={confirmOpen}

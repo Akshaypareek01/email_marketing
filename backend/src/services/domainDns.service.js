@@ -29,7 +29,7 @@ export function generateDnsRecords(domainName, dkimTokens = []) {
     {
       type: 'TXT',
       host: `_dmarc.${domainName}`,
-      value: 'v=DMARC1; p=none;',
+      value: 'v=DMARC1; p=quarantine; adkim=s; aspf=s; pct=100;',
       purpose: 'dmarc',
       verified: false,
     },
@@ -77,6 +77,37 @@ export function generateDnsRecords(domainName, dkimTokens = []) {
 }
 
 /**
+ * Add or update BIMI DNS record when a public SVG logo URL is configured.
+ * Gmail may show this logo next to the sender when DMARC is enforced.
+ * @param {import('../models/Domain.js').Domain} domain
+ */
+export function syncBimiDnsRecord(domain) {
+  const logoUrl = domain.branding?.logoUrl?.trim() || '';
+  const isSvg = /\.svg(\?|$)/i.test(logoUrl);
+  const records = domain.dnsRecords || [];
+  const withoutBimi = records.filter((r) => r.purpose !== 'bimi');
+
+  if (!logoUrl || !isSvg || !logoUrl.startsWith('https://')) {
+    domain.dnsRecords = withoutBimi;
+    return;
+  }
+
+  const host = `default._bimi.${domain.name}`;
+  const value = `v=BIMI1; l=${logoUrl};`;
+  const prev = records.find((r) => r.purpose === 'bimi');
+  domain.dnsRecords = [
+    ...withoutBimi,
+    {
+      type: 'TXT',
+      host,
+      value,
+      purpose: 'bimi',
+      verified: prev?.verified || false,
+    },
+  ];
+}
+
+/**
  * Normalize TXT record chunks for comparison.
  * @param {string[][]} rows
  */
@@ -99,6 +130,7 @@ export async function checkDnsRecord(record) {
       if (flat.includes(expected.replace(/;\s*$/, ''))) return true;
       if (record.purpose === 'spf' && flat.includes('include:amazonses.com')) return true;
       if (record.purpose === 'dmarc' && flat.includes('v=dmarc1')) return true;
+      if (record.purpose === 'bimi' && flat.includes('v=bimi1')) return true;
       return false;
     }
 
@@ -168,4 +200,5 @@ export function syncDomainDnsRecords(domain, dkimTokens = []) {
     );
     if (match?.verified) record.verified = true;
   }
+  syncBimiDnsRecord(domain);
 }
