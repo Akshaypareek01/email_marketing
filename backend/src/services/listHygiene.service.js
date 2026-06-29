@@ -32,6 +32,7 @@ export function isDisposableEmail(email) {
 
 /**
  * Analyze list hygiene for campaign pre-flight (PRD §6.3).
+ * Small lists get warnings only — blockers apply once the list is large enough to be meaningful.
  * @param {import('mongoose').Types.ObjectId | string} tenantId
  * @param {import('mongoose').Types.ObjectId | string} listId
  */
@@ -46,12 +47,18 @@ export async function analyzeListHygiene(tenantId, listId) {
 
   const total = contacts.length;
   if (total === 0) {
-    return { ok: false, notes: ['List has no subscribed contacts'], rolePct: 0, bouncedPct: 0 };
+    return {
+      ok: false,
+      blockers: ['List has no subscribed contacts'],
+      warnings: [],
+      notes: ['List has no subscribed contacts'],
+      rolePct: 0,
+      disposablePct: 0,
+    };
   }
 
   let roleCount = 0;
   let disposableCount = 0;
-  let priorBadCount = 0;
 
   for (const c of contacts) {
     if (isRoleAddress(c.email)) roleCount++;
@@ -63,24 +70,37 @@ export async function analyzeListHygiene(tenantId, listId) {
     listIds: listId,
     status: { $in: ['bounced', 'complained'] },
   });
-  priorBadCount = bouncedInList;
 
   const rolePct = Math.round((roleCount / total) * 100);
   const disposablePct = Math.round((disposableCount / total) * 100);
-  const notes = [];
-  let ok = true;
+  const blockers = [];
+  const warnings = [];
+  /** Lists under this size only get hygiene warnings, not send blockers. */
+  const minListForBlock = 10;
 
   if (rolePct > 30) {
-    notes.push(`High role-address ratio (${rolePct}%) — clean your list before sending`);
-    ok = false;
+    const msg = `High role-address ratio (${rolePct}%) — remove generic inboxes like info@, admin@, support@`;
+    if (total >= minListForBlock) blockers.push(msg);
+    else warnings.push(`${msg} (small test list — OK for now, clean before a real send)`);
   }
   if (disposablePct > 5) {
-    notes.push(`Disposable addresses detected (${disposablePct}%) — remove before sending`);
-    ok = false;
+    const msg = `Disposable addresses detected (${disposablePct}%) — remove before sending`;
+    if (total >= minListForBlock) blockers.push(msg);
+    else warnings.push(`${msg} (small test list)`);
   }
-  if (priorBadCount > 0) {
-    notes.push(`${priorBadCount} previously bounced/complained contacts still on list`);
+  if (bouncedInList > 0) {
+    warnings.push(`${bouncedInList} previously bounced/complained contacts still on list — remove them in Contacts`);
   }
 
-  return { ok, notes, rolePct, disposablePct, priorBadCount, total };
+  const notes = [...blockers, ...warnings];
+  return {
+    ok: blockers.length === 0,
+    blockers,
+    warnings,
+    notes,
+    rolePct,
+    disposablePct,
+    priorBadCount: bouncedInList,
+    total,
+  };
 }

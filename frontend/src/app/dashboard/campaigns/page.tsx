@@ -31,7 +31,17 @@ export default function CampaignsPage() {
       const updated = await api.listCampaigns(token);
       setCampaigns(updated.campaigns);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Schedule failed');
+      if (err instanceof ApiError) {
+        const pre = err.payload as { preflight?: { blockers?: string[] } } | undefined;
+        const blockers = pre?.preflight?.blockers;
+        setError(
+          blockers?.length
+            ? `${err.message}: ${blockers.join('; ')}`
+            : err.message
+        );
+      } else {
+        setError('Schedule failed');
+      }
     }
   }
 
@@ -45,8 +55,8 @@ export default function CampaignsPage() {
   return (
     <DashboardShell
       title="Campaigns"
-      subtitle="Bulk email campaigns with pre-flight checks"
-      action={<ButtonLink href="/dashboard/campaigns/new">New campaign</ButtonLink>}
+      subtitle="Bulk email to everyone on a contact list — sends start immediately"
+      action={<ButtonLink href="/dashboard/campaigns/new">New bulk send</ButtonLink>}
     >
       {error && <p className="mb-4 text-sm text-[var(--danger)]">{error}</p>}
 

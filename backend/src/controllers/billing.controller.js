@@ -4,6 +4,7 @@ import { changeTenantPlan } from '../services/changePlan.service.js';
 import {
   listQuotaAddonPacks,
   purchaseQuotaAddon,
+  syncQuotaAddonPurchase,
 } from '../services/quotaAddon.service.js';
 import { applyPlanToTenant } from '../services/subscription.service.js';
 import {
@@ -183,6 +184,19 @@ export async function buyQuotaAddon(req, res, next) {
     const { packId } = req.body;
     if (!packId) return res.status(400).json({ message: 'packId is required' });
     const result = await purchaseQuotaAddon(req.user.tenantId, packId);
+    res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    next(err);
+  }
+}
+
+/**
+ * Reconcile quota add-on payment after returning from Razorpay/Stripe checkout.
+ */
+export async function syncQuotaAddon(req, res, next) {
+  try {
+    const result = await syncQuotaAddonPurchase(req.user.tenantId);
     res.json(result);
   } catch (err) {
     if (err.status) return res.status(err.status).json({ message: err.message });

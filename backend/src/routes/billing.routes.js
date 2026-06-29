@@ -7,6 +7,7 @@ import {
   changePlan,
   getQuotaPacks,
   buyQuotaAddon,
+  syncQuotaAddon,
   getBillingConfigPublic,
 } from '../controllers/billing.controller.js';
 import { authenticate, requireTenantAdmin } from '../middleware/auth.js';
@@ -22,6 +23,7 @@ router.post('/checkout', [body('planId').notEmpty()], validate, createCheckout);
 router.post('/sync', syncCheckoutStatus);
 router.post('/change-plan', [body('planId').notEmpty()], validate, changePlan);
 router.post('/quota-addon', [body('packId').notEmpty()], validate, buyQuotaAddon);
+router.post('/quota-addon/sync', syncQuotaAddon);
 router.post('/cancel', cancelSubscription);
 router.get('/transactions', listMyTransactions);
 

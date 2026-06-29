@@ -35,7 +35,7 @@ export default function DashboardPage() {
       subtitle="Your email marketing control center"
       action={
         <ButtonLink href="/dashboard/campaigns" variant="primary" size="sm">
-          New campaign
+          Bulk send to list
         </ButtonLink>
       }
     >
@@ -113,7 +113,8 @@ export default function DashboardPage() {
                       { href: '/dashboard/domains', label: 'Add domain', desc: 'Connect & verify DNS' },
                       { href: '/dashboard/contacts', label: 'Import contacts', desc: 'CSV upload & lists' },
                       { href: '/dashboard/templates', label: 'Create template', desc: 'HTML + merge tags' },
-                      { href: '/dashboard/compose', label: 'Send one-off', desc: 'Single email' },
+                      { href: '/dashboard/campaigns', label: 'Bulk send to list', desc: 'Email all contacts in a list' },
+                      { href: '/dashboard/compose', label: 'Send one-off', desc: 'Single recipient' },
                     ].map((item) => (
                       <Link
                         key={item.href}

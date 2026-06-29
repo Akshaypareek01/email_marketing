@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DashboardShell } from '@/components/DashboardShell';
@@ -114,7 +115,14 @@ export default function ComposePage() {
   }
 
   return (
-    <DashboardShell title="Send email" subtitle="Send a one-off email and see what you’ve sent">
+    <DashboardShell title="Send email" subtitle="One recipient — use Bulk send for your full client list">
+      <div className="mb-4 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+        <span className="text-muted-foreground">Need to email your whole customer list at once?</span>{' '}
+        <Link href="/dashboard/campaigns" className="font-semibold text-[var(--primary)] underline underline-offset-2">
+          Bulk send to list
+        </Link>
+        <span className="text-muted-foreground"> — pick a template + contact list and send instantly.</span>
+      </div>
       <div className="grid gap-6 lg:grid-cols-5">
         {/* Composer */}
         <div className="lg:col-span-3">

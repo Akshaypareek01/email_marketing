@@ -7,8 +7,10 @@ import { hasUnsubscribeFooter } from '../services/contactsImport.service.js';
 import { loadTenantForSend } from '../services/sendingGuard.service.js';
 import { getEffectiveQuota } from '../services/subscription.service.js';
 import { analyzeListHygiene } from '../services/listHygiene.service.js';
+import { seedCampaignRecipients } from '../services/campaignSend.service.js';
 import { queueCampaignAt } from '../services/scheduledCampaign.service.js';
 import { assertEmailVerified } from '../services/emailVerification.service.js';
+import { SendBlockedError } from '../services/sendingGuard.service.js';
 
 /**
  * Run pre-flight checks for a campaign (PRD §5.7).
@@ -16,8 +18,8 @@ import { assertEmailVerified } from '../services/emailVerification.service.js';
  * @param {{ templateId: string, listId: string }} params
  */
 async function runPreflight(tenantId, { templateId, listId }) {
-  const notes = [];
-  let ok = true;
+  const blockers = [];
+  const warnings = [];
 
   const [template, list, activeDomain, tenant, recipientCount] = await Promise.all([
     Template.findOne({ _id: templateId, tenantId }),
@@ -28,24 +30,19 @@ async function runPreflight(tenantId, { templateId, listId }) {
   ]);
 
   if (!template) {
-    notes.push('Template not found');
-    ok = false;
+    blockers.push('Template not found');
   } else if (!hasUnsubscribeFooter(template.htmlBody)) {
-    notes.push('Template must include unsubscribe link or {{unsubscribe_url}} merge tag');
-    ok = false;
+    blockers.push('Template must include unsubscribe link or {{unsubscribe_url}} merge tag');
   }
 
   if (!list) {
-    notes.push('Contact list not found');
-    ok = false;
+    blockers.push('Contact list not found');
   } else if (recipientCount === 0) {
-    notes.push('List has no subscribed contacts');
-    ok = false;
+    blockers.push('List has no subscribed contacts');
   }
 
   if (!activeDomain) {
-    notes.push('No verified domain — verify a domain before sending campaigns');
-    ok = false;
+    blockers.push('No verified domain — verify a domain before sending campaigns');
   }
 
   const quota = getEffectiveQuota(tenant.subscription || {});
@@ -53,24 +50,21 @@ async function runPreflight(tenantId, { templateId, listId }) {
   const remaining = quota > 0 ? Math.max(0, quota - used) : null;
 
   if (remaining != null && recipientCount > remaining) {
-    notes.push(`Insufficient quota: ${recipientCount} recipients but only ${remaining} emails remaining`);
-    ok = false;
+    blockers.push(`Insufficient quota: ${recipientCount} recipients but only ${remaining} emails remaining`);
   }
 
   if (tenant.sending?.paused) {
-    notes.push(`Sending paused: ${tenant.sending.pauseReason || 'contact support'}`);
-    ok = false;
+    blockers.push(`Sending paused: ${tenant.sending.pauseReason || 'contact support'}`);
   }
 
   const hygiene = await analyzeListHygiene(tenantId, listId);
-  if (!hygiene.ok) {
-    notes.push(...hygiene.notes);
-    ok = false;
-  } else if (hygiene.notes.length) {
-    notes.push(...hygiene.notes);
-  }
+  blockers.push(...(hygiene.blockers || []));
+  warnings.push(...(hygiene.warnings || []));
 
-  return { ok, notes, recipientCount, remaining, hygiene };
+  const notes = [...blockers, ...warnings];
+  const ok = blockers.length === 0;
+
+  return { ok, blockers, warnings, notes, recipientCount, remaining, hygiene };
 }
 
 export async function listCampaigns(req, res, next) {
@@ -119,6 +113,40 @@ export async function createCampaign(req, res, next) {
     });
 
     res.status(201).json({ campaign, preflight });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Update a draft campaign (name, subject, template, list, attachments).
+ */
+export async function updateCampaign(req, res, next) {
+  try {
+    const campaign = await Campaign.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
+    if (campaign.status !== 'draft') {
+      return res.status(409).json({ message: 'Only draft campaigns can be edited' });
+    }
+
+    const { name, subject, templateId, listId, attachments } = req.body;
+    if (typeof name === 'string' && name.trim()) campaign.name = name.trim();
+    if (typeof subject === 'string' && subject.trim()) campaign.subject = subject.trim();
+    if (templateId) campaign.templateId = templateId;
+    if (listId) campaign.listId = listId;
+    if (Array.isArray(attachments)) campaign.attachments = attachments.slice(0, 5);
+
+    const preflight = await runPreflight(req.user.tenantId, {
+      templateId: campaign.templateId,
+      listId: campaign.listId,
+    });
+    campaign.stats = { ...campaign.stats, total: preflight.recipientCount };
+    campaign.preflightNotes = preflight.notes;
+    await campaign.save();
+    await campaign.populate('templateId', 'name subject');
+    await campaign.populate('listId', 'name');
+
+    res.json({ campaign, preflight });
   } catch (err) {
     next(err);
   }
@@ -186,9 +214,13 @@ export async function scheduleCampaign(req, res, next) {
     res.json({
       campaign,
       message:
-        'Campaign send started. Delivery is throttled via BullMQ when REDIS_URL is set, otherwise in-process.',
+        'Campaign send started. Emails go out immediately to your list (throttled for deliverability).',
     });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message });
+    if (err instanceof SendBlockedError) {
+      return res.status(err.status || 403).json({ message: err.message, code: err.code });
+    }
     next(err);
   }
 }

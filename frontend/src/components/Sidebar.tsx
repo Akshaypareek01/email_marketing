@@ -19,7 +19,7 @@ const NAV_GROUPS: { title: string; links: NavLink[] }[] = [
     links: [
       { href: '/dashboard/contacts', label: 'Contacts' },
       { href: '/dashboard/templates', label: 'Templates' },
-      { href: '/dashboard/campaigns', label: 'Campaigns' },
+      { href: '/dashboard/campaigns', label: 'Bulk send' },
       { href: '/dashboard/analytics', label: 'Analytics' },
     ],
   },
@@ -50,6 +50,7 @@ function Icon({ name, className }: { name: string; className?: string }) {
     Contacts: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></>,
     Templates: <><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></>,
     Campaigns: <><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></>,
+    'Bulk send': <><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></>,
     Analytics: <><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></>,
     Domains: <><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20" /></>,
     Mailboxes: <><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m2 7 10 6 10-6" /></>,

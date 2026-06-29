@@ -214,6 +214,33 @@ export class RazorpayBillingProvider extends BillingProvider {
     const planId = notes.planId;
 
     switch (event.event) {
+      case 'payment.captured':
+        if (notes.type === 'quota_addon' && tenantId && notes.packId) {
+          const { fulfillQuotaAddonPurchase } = await import('../quotaAddon.service.js');
+          await fulfillQuotaAddonPurchase(tenantId, notes.packId, {
+            provider: 'razorpay',
+            externalId: entity?.id || `rz-pay-${Date.now()}`,
+            amountMinor: entity?.amount ?? 0,
+            currency: (entity?.currency || 'INR').toUpperCase(),
+            source: 'payment.captured',
+          });
+        }
+        break;
+      case 'payment_link.paid': {
+        const linkEntity = event.payload?.payment_link?.entity;
+        const linkNotes = linkEntity?.notes || {};
+        if (linkNotes.type === 'quota_addon' && linkNotes.tenantId && linkNotes.packId) {
+          const { fulfillQuotaAddonPurchase } = await import('../quotaAddon.service.js');
+          await fulfillQuotaAddonPurchase(linkNotes.tenantId, linkNotes.packId, {
+            provider: 'razorpay',
+            externalId: linkEntity?.id || entity?.id || `rz-link-${Date.now()}`,
+            amountMinor: linkEntity?.amount ?? entity?.amount ?? 0,
+            currency: (linkEntity?.currency || entity?.currency || 'INR').toUpperCase(),
+            source: 'payment_link.paid',
+          });
+        }
+        break;
+      }
       case 'subscription.activated':
       case 'subscription.charged':
         if (tenantId && planId) {
@@ -293,11 +320,71 @@ export class RazorpayBillingProvider extends BillingProvider {
   }
 
   /**
-   * @param {string} _tenantId
-   * @param {object} _pack
+   * One-time quota add-on via Razorpay Payment Link (redirect to pay).
+   * @param {string} tenantId
+   * @param {{ id: string, label: string, emails: number, priceMinor: number, currency: string }} pack
    */
-  async createQuotaAddonCheckout(_tenantId, _pack) {
-    throw new Error('Razorpay one-time add-on checkout not configured — using direct credit');
+  async createQuotaAddonCheckout(tenantId, pack) {
+    const [tenant, adminUser] = await Promise.all([
+      Tenant.findById(tenantId),
+      User.findOne({ tenantId, role: 'admin' }).sort({ createdAt: 1 }),
+    ]);
+    if (!tenant) throw new Error('Tenant not found');
+
+    const paymentLink = await this.#rz().paymentLink.create({
+      amount: pack.priceMinor,
+      currency: pack.currency,
+      description: `Mail Box — ${pack.label}`,
+      customer: {
+        name: tenant.name,
+        email: adminUser?.email || undefined,
+      },
+      notify: { sms: false, email: Boolean(adminUser?.email) },
+      reminder_enable: true,
+      notes: {
+        tenantId: String(tenantId),
+        packId: pack.id,
+        type: 'quota_addon',
+      },
+      callback_url: `${env.appUrl}/dashboard/billing?addon=success`,
+      callback_method: 'get',
+    });
+
+    if (!paymentLink.short_url) {
+      throw new Error('Razorpay did not return a payment link');
+    }
+
+    return { checkoutUrl: paymentLink.short_url, sessionId: paymentLink.id };
+  }
+
+  /**
+   * Confirm a pending quota add-on payment link after the user returns from Razorpay.
+   * @param {string} tenantId
+   */
+  async syncQuotaAddonStatus(tenantId) {
+    const tenant = await Tenant.findById(tenantId);
+    if (!tenant) throw new Error('Tenant not found');
+
+    const linkId = tenant.billing?.pendingQuotaPaymentLinkId;
+    const packId = tenant.billing?.pendingQuotaAddonPackId;
+    if (!linkId || !packId) return { activated: false, status: 'none' };
+
+    const link = await this.#rz().paymentLink.fetch(linkId);
+    const status = link?.status || 'unknown';
+
+    if (status === 'paid') {
+      const { fulfillQuotaAddonPurchase } = await import('../quotaAddon.service.js');
+      await fulfillQuotaAddonPurchase(tenantId, packId, {
+        provider: 'razorpay',
+        externalId: linkId,
+        amountMinor: link.amount ?? 0,
+        currency: (link.currency || 'INR').toUpperCase(),
+        source: 'payment_link',
+      });
+      return { activated: true, status, packId };
+    }
+
+    return { activated: false, status, packId };
   }
 
   /**

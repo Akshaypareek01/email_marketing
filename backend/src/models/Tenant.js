@@ -39,6 +39,9 @@ const billingProviderSchema = new mongoose.Schema(
     stripeCustomerId: { type: String, default: '', trim: true },
     stripeSubscriptionId: { type: String, default: '', trim: true },
     razorpaySubscriptionId: { type: String, default: '', trim: true },
+    /** Pending one-time quota add-on checkout (cleared after payment). */
+    pendingQuotaAddonPackId: { type: String, default: '', trim: true },
+    pendingQuotaPaymentLinkId: { type: String, default: '', trim: true },
   },
   { _id: false }
 );

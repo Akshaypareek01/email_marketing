@@ -42,7 +42,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public errors?: unknown[]
+    public errors?: unknown[],
+    public payload?: unknown
   ) {
     super(message);
     this.name = 'ApiError';
@@ -90,7 +91,7 @@ async function request<T>(
   }
 
   if (!res.ok) {
-    throw new ApiError(data.message || 'Request failed', res.status, data.errors);
+    throw new ApiError(data.message || 'Request failed', res.status, data.errors, data);
   }
 
   return data as T;
@@ -294,6 +295,13 @@ export const api = {
     request<{ mode: 'direct' | 'redirect'; message?: string; checkoutUrl?: string; pack?: QuotaAddonPack }>(
       '/billing/quota-addon',
       { method: 'POST', body: JSON.stringify({ packId }) },
+      token
+    ),
+
+  syncQuotaAddon: (token: string) =>
+    request<{ activated: boolean; status: string; packId?: string }>(
+      '/billing/quota-addon/sync',
+      { method: 'POST', body: '{}' },
       token
     ),
 
@@ -612,6 +620,23 @@ export const api = {
     { method: 'POST', body: JSON.stringify(body) },
     token
   ),
+
+  updateCampaign: (
+    token: string,
+    id: string,
+    body: {
+      name?: string;
+      subject?: string;
+      templateId?: string;
+      listId?: string;
+      attachments?: OutboundAttachment[];
+    }
+  ) =>
+    request<{ campaign: Campaign; preflight: CampaignPreflight }>(
+      `/campaigns/${id}`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+      token
+    ),
 
   preflightCampaign: (token: string, body: { templateId: string; listId: string }) =>
     request<CampaignPreflight>('/campaigns/preflight', { method: 'POST', body: JSON.stringify(body) }, token),

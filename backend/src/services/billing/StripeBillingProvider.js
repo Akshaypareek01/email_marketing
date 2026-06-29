@@ -8,8 +8,6 @@ import { recordTransaction } from './transaction.service.js';
 import { upsertSystemNotice, deactivateSystemNotice } from '../systemNotice.service.js';
 import { BillingProvider } from './BillingProvider.js';
 import logger from '../../middleware/logsCreate.js';
-import { applyQuotaAddon } from '../quotaAddon.service.js';
-import { getQuotaAddonPack } from '../../constants/quotaAddonPacks.js';
 
 /**
  * Stripe implementation of the billing provider interface.
@@ -249,17 +247,13 @@ export class StripeBillingProvider extends BillingProvider {
     const packId = session.metadata?.packId;
 
     if (session.metadata?.type === 'quota_addon' && tenantId && packId) {
-      await applyQuotaAddon(tenantId, packId);
-      const pack = getQuotaAddonPack(packId);
-      await recordTransaction({
-        tenantId,
+      const { fulfillQuotaAddonPurchase } = await import('../quotaAddon.service.js');
+      await fulfillQuotaAddonPurchase(tenantId, packId, {
         provider: 'stripe',
         externalId: session.id,
-        amountMinor: session.amount_total ?? pack?.priceMinor ?? 0,
+        amountMinor: session.amount_total ?? 0,
         currency: (session.currency || 'inr').toUpperCase(),
-        status: 'paid',
-        description: `Quota add-on — ${pack?.label || packId}`,
-        metadata: { sessionId: session.id, packId, type: 'quota_addon' },
+        source: 'checkout.completed',
       });
       return;
     }
@@ -385,5 +379,35 @@ export class StripeBillingProvider extends BillingProvider {
     tenant.billing = tenant.billing || {};
     tenant.billing.stripeSubscriptionId = '';
     await tenant.save();
+  }
+
+  /**
+   * Confirm a pending Stripe Checkout session for a quota add-on.
+   * @param {string} tenantId
+   */
+  async syncQuotaAddonStatus(tenantId) {
+    const tenant = await Tenant.findById(tenantId);
+    if (!tenant) throw new Error('Tenant not found');
+
+    const sessionId = tenant.billing?.pendingQuotaPaymentLinkId;
+    const packId = tenant.billing?.pendingQuotaAddonPackId;
+    if (!sessionId || !packId) return { activated: false, status: 'none' };
+
+    const session = await this.#client().checkout.sessions.retrieve(sessionId);
+    const status = session.payment_status || 'unknown';
+
+    if (status === 'paid') {
+      const { fulfillQuotaAddonPurchase } = await import('../quotaAddon.service.js');
+      await fulfillQuotaAddonPurchase(tenantId, packId, {
+        provider: 'stripe',
+        externalId: session.id,
+        amountMinor: session.amount_total ?? 0,
+        currency: (session.currency || 'inr').toUpperCase(),
+        source: 'checkout.sync',
+      });
+      return { activated: true, status, packId };
+    }
+
+    return { activated: false, status, packId };
   }
 }

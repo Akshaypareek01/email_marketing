@@ -430,6 +430,8 @@ export interface Campaign {
 export interface CampaignPreflight {
   ok: boolean;
   notes: string[];
+  blockers?: string[];
+  warnings?: string[];
   recipientCount: number;
   remaining: number | null;
 }
